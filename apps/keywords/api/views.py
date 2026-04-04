@@ -1,6 +1,3 @@
-import csv
-import io
-
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.parsers import MultiPartParser
@@ -8,7 +5,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.keywords.models import Keyword
-from apps.keywords.services import create_keywords_from_list, dispatch_scraping
+from apps.keywords.parsers.base import ParseError
+from apps.keywords.services import (
+    create_keywords_from_list,
+    dispatch_scraping,
+    parse_keywords_from_file,
+)
 
 from .serializers import KeywordListSerializer, KeywordSerializer, UploadFileSerializer
 
@@ -23,34 +25,11 @@ class KeywordUploadAPIView(APIView):
                 {'error': 'No file provided.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not uploaded_file.name.endswith('.csv'):
-            return Response(
-                {'error': 'Only CSV files are allowed.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         try:
-            content = uploaded_file.read().decode('utf-8')
-            reader = csv.reader(io.StringIO(content))
-            keyword_texts = []
-            for row in reader:
-                for cell in row:
-                    stripped = cell.strip()
-                    if stripped:
-                        keyword_texts.append(stripped)
-        except UnicodeDecodeError:
+            keyword_texts = parse_keywords_from_file(uploaded_file)
+        except ParseError as e:
             return Response(
-                {'error': 'File must be UTF-8 encoded.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not keyword_texts:
-            return Response(
-                {'error': 'CSV file is empty.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if len(keyword_texts) > 100:
-            return Response(
-                {'error': 'Maximum 100 keywords allowed per file.'},
+                {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

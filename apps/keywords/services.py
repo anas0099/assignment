@@ -1,4 +1,12 @@
 from .models import Keyword, UploadFile
+from .parsers import get_parser
+
+
+def parse_keywords_from_file(uploaded_file) -> list[str]:
+    parser = get_parser(uploaded_file.name)
+    content = uploaded_file.read()
+    uploaded_file.seek(0)
+    return parser.parse(content)
 
 
 def create_keywords_from_list(user, file_name, keyword_texts):
