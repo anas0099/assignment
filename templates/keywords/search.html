@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Bing Scraper{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-6">Search Keywords</h1>
+
+<form method="get" class="mb-6">
+    <div class="flex space-x-3">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search by keyword or file name..."
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">Search</button>
+    </div>
+</form>
+
+{% if query %}
+    {% if keywords %}
+    <p class="text-sm text-gray-500 mb-4">{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }} for "{{ query }}"</p>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">File</th>
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for kw in keywords %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ kw.text }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if kw.status == 'completed' %}bg-green-100 text-green-700
+                            {% elif kw.status == 'processing' %}bg-yellow-100 text-yellow-700
+                            {% elif kw.status == 'failed' %}bg-red-100 text-red-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ kw.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ kw.upload_file.file_name }}</td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="{% url 'keyword-detail' kw.pk %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="mt-4 flex justify-center space-x-2">
+        {% if page_obj.has_previous %}
+            <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</a>
+        {% endif %}
+        <span class="px-3 py-1 text-sm text-gray-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?q={{ query }}&page={{ page_obj.next_page_number }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
+        <p class="text-gray-500">No results found for "{{ query }}"</p>
+    </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

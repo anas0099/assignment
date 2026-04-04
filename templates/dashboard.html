@@ -3,9 +3,29 @@
 {% block title %}Dashboard - Bing Scraper{% endblock %}
 
 {% block content %}
-<div class="text-center py-16">
-    <h1 class="text-3xl font-bold text-gray-900 mb-4">Welcome, {{ user.username }}</h1>
-    <p class="text-gray-600 mb-8">Upload keywords and start scraping Bing search results.</p>
-    <p class="text-sm text-gray-400">Keyword upload.</p>
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Welcome, {{ user.username }}</h1>
+    <p class="text-gray-500">Upload keywords and scrape Bing search results.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-1">Total Keywords</p>
+        <p class="text-3xl font-bold text-gray-900">{{ total_keywords }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-1">Completed</p>
+        <p class="text-3xl font-bold text-green-600">{{ completed_keywords }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-1">Pending / Failed</p>
+        <p class="text-3xl font-bold text-yellow-600">{{ pending_keywords }}</p>
+    </div>
+</div>
+
+<div class="flex space-x-4">
+    <a href="{% url 'keyword-upload' %}" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">Upload CSV</a>
+    <a href="{% url 'keyword-list' %}" class="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">View Keywords</a>
+    <a href="{% url 'keyword-search' %}" class="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">Search</a>
 </div>
 {% endblock %}
