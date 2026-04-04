@@ -7,5 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', DashboardView.as_view(), name='dashboard'),
     path('accounts/', include('apps.accounts.urls')),
+    path('keywords/', include('apps.keywords.urls')),
     path('api/auth/', include('apps.accounts.api.urls')),
+    path('api/keywords/', include('apps.keywords.api.urls')),
 ]

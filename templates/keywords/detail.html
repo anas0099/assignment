@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{{ keyword.text }} - Bing Scraper{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'keyword-list' %}" class="text-sm text-blue-600 hover:text-blue-800">&larr; Back to keywords</a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="flex justify-between items-start">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-1">{{ keyword.text }}</h1>
+            <p class="text-sm text-gray-500">From: {{ keyword.upload_file.file_name }} &middot; {{ keyword.created_at|date:"M d, Y H:i" }}</p>
+        </div>
+        <span class="inline-flex px-3 py-1 rounded-full text-sm font-medium
+            {% if keyword.status == 'completed' %}bg-green-100 text-green-700
+            {% elif keyword.status == 'processing' %}bg-yellow-100 text-yellow-700
+            {% elif keyword.status == 'failed' %}bg-red-100 text-red-700
+            {% else %}bg-gray-100 text-gray-700{% endif %}">
+            {{ keyword.get_status_display }}
+        </span>
+    </div>
+</div>
+
+{% if keyword.status == 'completed' and keyword.search_result %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-1">Total Ads</p>
+        <p class="text-3xl font-bold text-gray-900">{{ keyword.search_result.total_ads }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <p class="text-sm text-gray-500 mb-1">Total Links</p>
+        <p class="text-3xl font-bold text-gray-900">{{ keyword.search_result.total_links }}</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Raw HTML</h3>
+        <button onclick="document.getElementById('html-content').classList.toggle('hidden')" class="text-sm text-blue-600 hover:text-blue-800">Toggle</button>
+    </div>
+    <div id="html-content" class="hidden">
+        <pre class="bg-gray-50 rounded-lg p-4 text-xs text-gray-700 overflow-x-auto max-h-96 overflow-y-auto border border-gray-200"><code>{{ keyword.search_result.raw_html|truncatechars:50000 }}</code></pre>
+    </div>
+    <p class="text-xs text-gray-400 mt-2">Scraped at: {{ keyword.search_result.scraped_at|date:"M d, Y H:i:s" }}</p>
+</div>
+
+{% elif keyword.status == 'failed' %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-6">
+    <p class="text-red-700">Scraping failed after {{ keyword.retry_count }} retries.</p>
+</div>
+
+{% elif keyword.status == 'pending' or keyword.status == 'processing' %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+    <p class="text-yellow-700">Scraping is {{ keyword.get_status_display|lower }}. Refresh this page to check for updates.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -57,3 +57,12 @@ class LogoutView(View):
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.keywords.models import Keyword
+        user_keywords = Keyword.objects.filter(upload_file__user=self.request.user)
+        context['total_keywords'] = user_keywords.count()
+        context['completed_keywords'] = user_keywords.filter(status='completed').count()
+        context['pending_keywords'] = user_keywords.exclude(status='completed').count()
+        return context
