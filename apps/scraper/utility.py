@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 import time
 
 import certifi
@@ -14,7 +15,8 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 logger = logging.getLogger(__name__)
 
-CHROME_VERSION = 146
+CHROME_VERSION = int(os.environ.get('CHROME_VERSION', '0')) or None
+_driver_lock = threading.Lock()
 
 
 def _create_driver(headless=True, block_images=True):
@@ -26,13 +28,29 @@ def _create_driver(headless=True, block_images=True):
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--lang=en-US')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument(
+        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+    )
     if block_images:
         prefs = {
             'profile.managed_default_content_settings.images': 2,
             'profile.default_content_setting_values.notifications': 2,
         }
         options.add_experimental_option('prefs', prefs)
-    return uc.Chrome(options=options, version_main=CHROME_VERSION)
+    with _driver_lock:
+        driver = uc.Chrome(options=options, version_main=CHROME_VERSION)
+    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+        'userAgent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+        ),
+    })
+    driver.execute_script(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    )
+    return driver
 
 
 def _safe_quit(driver):
@@ -112,10 +130,10 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
             _safe_quit(driver)
             return html
 
-        except WebDriverException as err:
+        except Exception as err:
             logger.warning(
-                'Browser error on attempt %d/%d: %s',
-                attempt + 1, max_retries, err,
+                'Browser error on attempt %d/%d: %s: %s',
+                attempt + 1, max_retries, type(err).__name__, err,
             )
             last_error = err
             _safe_quit(driver)

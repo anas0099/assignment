@@ -17,11 +17,14 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    ports:
-      - "2182:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD-SHELL", "zookeeper-shell localhost:2181 ls / || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -30,18 +33,74 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9094 --list"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
       interval: 10s
       timeout: 10s
       retries: 10
+
+  topic-init:
+    platform: linux/amd64
+    build: .
+    command: python3 -c "import os,logging;logging.basicConfig(level=logging.INFO);os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.local');import django;django.setup();from config.kafka import ensure_topic;ensure_topic();print('Kafka topic ready.')"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SECRET_KEY: docker-init-key
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  web:
+    platform: linux/amd64
+    build: .
+    command: bash /app/entrypoint.sh
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCRAPING_MODE: async
+      SECRET_KEY: dev-secret-key-not-for-production
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      topic-init:
+        condition: service_completed_successfully
+
+  kafka-consumer:
+    platform: linux/amd64
+    build: .
+    shm_size: 2gb
+    command: python3 kafka/consumer.py
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCRAPING_MODE: async
+      SECRET_KEY: dev-secret-key-not-for-production
+      CHROME_VERSION: "146"
+      SCRAPER_WORKERS: "1"
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -21,7 +21,7 @@ from config.kafka import KAFKA_BOOTSTRAP_SERVERS, KEYWORD_SCRAPE_TOPIC
 logger = logging.getLogger(__name__)
 
 running = True
-MAX_WORKERS = 6
+MAX_WORKERS = int(os.environ.get('SCRAPER_WORKERS', '6'))
 
 
 def _signal_handler(signum, frame):

@@ -11,6 +11,9 @@ setuptools
 selenium
 undetected-chromedriver
 confluent-kafka
+gunicorn
+whitenoise
+certifi
 pytest
 pytest-django
 responses

@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 REQUEST_DELAY_SECONDS = 3
 MAX_SCRAPE_RETRIES = 3
-WAIT_TIMEOUT = 10
-EXTRA_RENDER_WAIT = 3
+WAIT_TIMEOUT = 20
+EXTRA_RENDER_WAIT = 5
 
 
 def _parse_results(raw_html):
