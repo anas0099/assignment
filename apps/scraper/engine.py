@@ -46,7 +46,6 @@ def scrape_bing(keyword_text):
 
     raw_html = scrape_page(
         url=search_url,
-        wait_selector='ol#b_results',
         wait_timeout=WAIT_TIMEOUT,
         extra_wait=EXTRA_RENDER_WAIT,
         max_retries=MAX_SCRAPE_RETRIES,
