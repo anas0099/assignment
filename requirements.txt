@@ -5,5 +5,11 @@ python-decouple==3.8
 sqlparse==0.5.5
 psycopg[binary]
 dj-database-url
+beautifulsoup4
+lxml
+setuptools
+selenium
+undetected-chromedriver
 pytest
 pytest-django
+responses

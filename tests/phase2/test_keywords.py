@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -22,12 +24,14 @@ def api_client(db):
 
 @pytest.mark.django_db
 class TestKeywords:
-    def test_upload_csv_creates_keywords(self, api_client):
+    @patch('apps.keywords.api.views.dispatch_scraping')
+    def test_upload_csv_creates_keywords(self, mock_dispatch, api_client):
         csv = SimpleUploadedFile('k.csv', b'python,django,flask', content_type='text/csv')
         response = api_client.post('/api/keywords/upload/', {'file': csv}, format='multipart')
         assert response.status_code == 201
         assert response.data['keyword_count'] == 3
         assert Keyword.objects.filter(upload_file__user=api_client.user).count() == 3
+        assert mock_dispatch.called
 
     def test_list_returns_only_own_keywords(self, api_client):
         create_keywords_from_list(api_client.user, 'mine.csv', ['python'])
@@ -45,7 +49,8 @@ class TestKeywords:
         assert response.status_code == 200
         assert response.data['search_result']['total_ads'] == 5
 
-    def test_upload_rejects_over_100_keywords(self, api_client):
+    @patch('apps.keywords.api.views.dispatch_scraping')
+    def test_upload_rejects_over_100_keywords(self, mock_dispatch, api_client):
         content = ','.join([f'w{i}' for i in range(101)])
         big = SimpleUploadedFile('big.csv', content.encode(), content_type='text/csv')
         response = api_client.post('/api/keywords/upload/', {'file': big}, format='multipart')
