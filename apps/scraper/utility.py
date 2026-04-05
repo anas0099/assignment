@@ -7,6 +7,8 @@ import certifi
 os.environ.setdefault('SSL_CERT_FILE', certifi.where())
 os.environ.setdefault('REQUESTS_CA_BUNDLE', certifi.where())
 
+from apps.scraper.resilience import MaxRetriesExceeded
+
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,11 +18,15 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 logger = logging.getLogger(__name__)
 
 CHROME_VERSION = int(os.environ.get('CHROME_VERSION', '0')) or None
+CHROME_BINARY = os.environ.get('CHROME_BINARY', '')
+CHROMEDRIVER_PATH = os.environ.get('CHROMEDRIVER_PATH', '')
 _driver_lock = threading.Lock()
 
 
 def _create_driver(headless=True, block_images=True):
     options = uc.ChromeOptions()
+    if CHROME_BINARY:
+        options.binary_location = CHROME_BINARY
     if headless:
         options.add_argument('--headless=new')
     options.add_argument('--no-sandbox')
@@ -39,8 +45,11 @@ def _create_driver(headless=True, block_images=True):
             'profile.default_content_setting_values.notifications': 2,
         }
         options.add_experimental_option('prefs', prefs)
+    driver_kwargs = {'options': options, 'version_main': CHROME_VERSION}
+    if CHROMEDRIVER_PATH:
+        driver_kwargs['driver_executable_path'] = CHROMEDRIVER_PATH
     with _driver_lock:
-        driver = uc.Chrome(options=options, version_main=CHROME_VERSION)
+        driver = uc.Chrome(**driver_kwargs)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {
         'userAgent': (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -139,4 +148,6 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
             _safe_quit(driver)
             time.sleep(3 + attempt * 2)
 
-    raise last_error or Exception(f'Failed after {max_retries} attempts')
+    raise MaxRetriesExceeded(
+        f'Scraping failed after {max_retries} attempts: {last_error}'
+    ) from last_error

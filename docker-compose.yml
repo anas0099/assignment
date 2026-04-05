@@ -49,7 +49,6 @@ services:
       retries: 10
 
   topic-init:
-    platform: linux/amd64
     build: .
     command: python3 -c "import os,logging;logging.basicConfig(level=logging.INFO);os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.local');import django;django.setup();from config.kafka import ensure_topic;ensure_topic();print('Kafka topic ready.')"
     environment:
@@ -64,7 +63,6 @@ services:
         condition: service_healthy
 
   web:
-    platform: linux/amd64
     build: .
     command: bash /app/entrypoint.sh
     ports:
@@ -84,7 +82,6 @@ services:
         condition: service_completed_successfully
 
   kafka-consumer:
-    platform: linux/amd64
     build: .
     shm_size: 2gb
     command: python3 kafka/consumer.py
@@ -94,8 +91,10 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SCRAPING_MODE: async
       SECRET_KEY: dev-secret-key-not-for-production
+      CHROME_BINARY: /usr/bin/chromium
+      CHROMEDRIVER_PATH: /usr/bin/chromedriver
       CHROME_VERSION: "146"
-      SCRAPER_WORKERS: "1"
+      SCRAPER_WORKERS: "3"
     depends_on:
       topic-init:
         condition: service_completed_successfully

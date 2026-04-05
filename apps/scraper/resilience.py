@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 
 CAPTCHA_SIGNALS = ['solve the challenge', 'captcha', 'are you a robot', 'unusual traffic']
 
-LANGUAGE_SELECTION_SIGNALS = ['setlang=', 'choose your language', 'one last step', 'select your language']
+LANGUAGE_SELECTION_SIGNALS = ['choose your language', 'one last step', 'select your language', 'select language']
 
 
 class ScrapingError(Exception):

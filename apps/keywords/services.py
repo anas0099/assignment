@@ -26,6 +26,11 @@ def create_keywords_from_list(user, file_name, keyword_texts):
     return upload_file, keywords
 
 
+def _publish_to_kafka(keyword_id):
+    from config.kafka import publish_keywords
+    publish_keywords([keyword_id])
+
+
 def dispatch_scraping(keyword_ids):
     from django.conf import settings
 

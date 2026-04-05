@@ -5,11 +5,7 @@ ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends wget gnupg2 libpq-dev \
-    && wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-    && apt-get install -y /tmp/chrome.deb || true \
-    && apt-get install -fy \
-    && rm /tmp/chrome.deb \
+    && apt-get install -y --no-install-recommends chromium chromium-driver libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
