@@ -30,12 +30,12 @@
                 <th class="px-6 py-3"></th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody id="keyword-tbody" class="divide-y divide-gray-200">
             {% for kw in keywords %}
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-50" data-keyword-id="{{ kw.id }}">
                 <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ kw.text }}</td>
                 <td class="px-6 py-4">
-                    <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
+                    <span class="status-badge inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
                         {% if kw.status == 'completed' %}bg-green-100 text-green-700
                         {% elif kw.status == 'processing' %}bg-yellow-100 text-yellow-700
                         {% elif kw.status == 'failed' %}bg-red-100 text-red-700
@@ -72,4 +72,67 @@
     <a href="{% url 'keyword-upload' %}" class="text-blue-600 hover:text-blue-800 font-medium">Upload a CSV to get started</a>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var STATUS_CLASSES = {
+        'completed': 'bg-green-100 text-green-700',
+        'processing': 'bg-yellow-100 text-yellow-700',
+        'failed': 'bg-red-100 text-red-700',
+        'pending': 'bg-gray-100 text-gray-700'
+    };
+    var STATUS_LABELS = {
+        'completed': 'Completed',
+        'processing': 'Processing',
+        'failed': 'Failed',
+        'pending': 'Pending'
+    };
+
+    function hasPendingRows() {
+        var rows = document.querySelectorAll('#keyword-tbody tr[data-keyword-id]');
+        for (var i = 0; i < rows.length; i++) {
+            var badge = rows[i].querySelector('.status-badge');
+            if (badge && (badge.textContent.trim() === 'Pending' || badge.textContent.trim() === 'Processing')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function pollStatus() {
+        if (!hasPendingRows()) return;
+
+        fetch('/api/keywords/status/', {
+            credentials: 'same-origin',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var statusMap = {};
+            data.forEach(function(item) { statusMap[item.id] = item.status; });
+
+            document.querySelectorAll('#keyword-tbody tr[data-keyword-id]').forEach(function(row) {
+                var kid = parseInt(row.getAttribute('data-keyword-id'));
+                var newStatus = statusMap[kid];
+                if (!newStatus) return;
+
+                var badge = row.querySelector('.status-badge');
+                if (!badge) return;
+
+                var currentLabel = badge.textContent.trim();
+                var newLabel = STATUS_LABELS[newStatus] || newStatus;
+                if (currentLabel === newLabel) return;
+
+                badge.className = 'status-badge inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ' + (STATUS_CLASSES[newStatus] || STATUS_CLASSES['pending']);
+                badge.textContent = newLabel;
+            });
+        })
+        .catch(function() {});
+    }
+
+    setInterval(pollStatus, 3000);
+})();
+</script>
 {% endblock %}
