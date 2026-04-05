@@ -41,7 +41,7 @@
         <button onclick="document.getElementById('html-content').classList.toggle('hidden')" class="text-sm text-blue-600 hover:text-blue-800">Toggle</button>
     </div>
     <div id="html-content" class="hidden">
-        <pre class="bg-gray-50 rounded-lg p-4 text-xs text-gray-700 overflow-x-auto max-h-96 overflow-y-auto border border-gray-200"><code>{{ keyword.search_result.raw_html|truncatechars:50000 }}</code></pre>
+        <pre class="bg-gray-50 rounded-lg p-4 text-xs text-gray-700 overflow-x-auto max-h-96 overflow-y-auto border border-gray-200"><code>{{ keyword.search_result.raw_html }}</code></pre>
     </div>
     <p class="text-xs text-gray-400 mt-2">Scraped at: {{ keyword.search_result.scraped_at|date:"M d, Y H:i:s" }}</p>
 </div>

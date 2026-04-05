@@ -40,5 +40,12 @@ staticfiles/
 *.swp
 *.swo
 
-# macOS
+
+chrome_profile/
+
+output/
+manual_test.py
+testing_local.py
+test_keywords.csv
+
 .DS_Store

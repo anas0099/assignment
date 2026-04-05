@@ -7,7 +7,9 @@ psycopg[binary]
 dj-database-url
 beautifulsoup4
 lxml
-playwright
+setuptools
+selenium
+undetected-chromedriver
 pytest
 pytest-django
 responses
