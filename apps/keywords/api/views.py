@@ -74,3 +74,11 @@ class KeywordDetailAPIView(RetrieveAPIView):
         return Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
+
+
+class KeywordStatusAPIView(APIView):
+    def get(self, request):
+        keywords = Keyword.objects.filter(
+            upload_file__user=request.user,
+        ).values('id', 'text', 'status')
+        return Response(list(keywords))

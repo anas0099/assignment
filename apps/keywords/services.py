@@ -30,7 +30,9 @@ def dispatch_scraping(keyword_ids):
     from django.conf import settings
 
     if settings.SCRAPING_MODE == 'async':
-        pass
+        from config.kafka import publish_keywords
+        publish_keywords(keyword_ids)
+        logger.info('Published %d keywords to Kafka', len(keyword_ids))
     else:
         from apps.scraper.engine import scrape_keyword_sync
         for keyword_id in keyword_ids:

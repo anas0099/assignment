@@ -72,6 +72,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SCRAPING_MODE = config('SCRAPING_MODE', default='sync')
 
+KAFKA_BOOTSTRAP_SERVERS = config('KAFKA_BOOTSTRAP_SERVERS', default='localhost:9094')
+
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'

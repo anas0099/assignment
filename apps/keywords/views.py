@@ -14,6 +14,8 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
     form_class = KeywordUploadForm
 
     def form_valid(self, form):
+        from django.conf import settings
+
         keyword_texts = form.cleaned_data['parsed_keywords']
         file_name = form.cleaned_data['file'].name
         upload_file, keywords = create_keywords_from_list(
@@ -21,10 +23,12 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)
-        messages.success(
-            self.request,
-            f'Uploaded {len(keyword_texts)} keywords from {file_name}.',
-        )
+
+        if settings.SCRAPING_MODE == 'async':
+            msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}. Scraping enqueued — results will appear shortly.'
+        else:
+            msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}.'
+        messages.success(self.request, msg)
         return redirect('keyword-list')
 
 
