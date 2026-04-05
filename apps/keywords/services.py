@@ -1,5 +1,9 @@
+import logging
+
 from .models import Keyword, UploadFile
 from .parsers import get_parser
+
+logger = logging.getLogger(__name__)
 
 
 def parse_keywords_from_file(uploaded_file) -> list[str]:
@@ -32,5 +36,8 @@ def dispatch_scraping(keyword_ids):
         for keyword_id in keyword_ids:
             try:
                 scrape_keyword_sync(keyword_id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.error(
+                    'Failed to scrape keyword_id=%d error_type=%s error=%s',
+                    keyword_id, type(err).__name__, err,
+                )
