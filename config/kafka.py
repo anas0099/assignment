@@ -8,7 +8,7 @@ from decouple import config
 
 logger = logging.getLogger(__name__)
 
-KAFKA_BOOTSTRAP_SERVERS = config('KAFKA_BOOTSTRAP_SERVERS', default='localhost:9092')
+KAFKA_BOOTSTRAP_SERVERS = config('KAFKA_BOOTSTRAP_SERVERS', default='localhost:9094')
 KEYWORD_SCRAPE_TOPIC = 'keyword-scrape'
 TOPIC_PARTITIONS = 18
 

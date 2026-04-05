@@ -38,6 +38,7 @@ class Keyword(models.Model):
         default=Status.PENDING,
     )
     retry_count = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

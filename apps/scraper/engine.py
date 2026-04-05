@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 REQUEST_DELAY_SECONDS = 3
 MAX_SCRAPE_RETRIES = 3
-WAIT_TIMEOUT = 10
-EXTRA_RENDER_WAIT = 3
+MAX_TOTAL_RETRIES = 5
+WAIT_TIMEOUT = 20
+EXTRA_RENDER_WAIT = 5
 
 
 def _parse_results(raw_html):
@@ -78,22 +79,27 @@ def scrape_keyword_sync(keyword_id):
             defaults=result,
         )
         keyword.status = Keyword.Status.COMPLETED
-        keyword.save(update_fields=['status', 'updated_at'])
+        keyword.error_message = ''
+        keyword.save(update_fields=['status', 'error_message', 'updated_at'])
         time.sleep(REQUEST_DELAY_SECONDS)
 
     except (MaxRetriesExceeded, ScrapingError) as err:
+        keyword.retry_count += 1
         keyword.status = Keyword.Status.FAILED
-        keyword.retry_count = keyword.retry_count + 1
-        keyword.save(update_fields=['status', 'retry_count', 'updated_at'])
+        keyword.error_message = str(err)
+        keyword.save(update_fields=['status', 'retry_count', 'error_message', 'updated_at'])
         logger.error(
-            'Scraping failed for keyword=%s id=%d retries=%d error=%s',
-            keyword.text, keyword.id, keyword.retry_count, err,
+            'Scraping failed keyword=%r id=%d attempt=%d/%d error=%s',
+            keyword.text, keyword.id, keyword.retry_count, MAX_TOTAL_RETRIES,
+            keyword.error_message[:120],
         )
 
     except Exception as err:
+        keyword.retry_count += 1
         keyword.status = Keyword.Status.FAILED
-        keyword.save(update_fields=['status', 'updated_at'])
+        keyword.error_message = f'{type(err).__name__}: {err}'
+        keyword.save(update_fields=['status', 'retry_count', 'error_message', 'updated_at'])
         logger.error(
-            'Unexpected error for keyword=%s id=%d error_type=%s error=%s',
+            'Unexpected error keyword=%r id=%d error_type=%s error=%s',
             keyword.text, keyword.id, type(err).__name__, err,
         )
