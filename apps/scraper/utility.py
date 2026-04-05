@@ -14,12 +14,10 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 logger = logging.getLogger(__name__)
 
-_driver_instance = None
-
 CHROME_VERSION = 146
 
 
-def _get_chrome_options(headless=True, block_images=True):
+def _create_driver(headless=True, block_images=True):
     options = uc.ChromeOptions()
     if headless:
         options.add_argument('--headless=new')
@@ -34,34 +32,18 @@ def _get_chrome_options(headless=True, block_images=True):
             'profile.default_content_setting_values.notifications': 2,
         }
         options.add_experimental_option('prefs', prefs)
-    return options
+    return uc.Chrome(options=options, version_main=CHROME_VERSION)
 
 
-def get_driver(headless=True, block_images=True):
-    global _driver_instance
-    if _driver_instance is not None:
+def _safe_quit(driver):
+    if driver is not None:
         try:
-            _driver_instance.title
-            return _driver_instance
-        except Exception:
-            _driver_instance = None
-
-    options = _get_chrome_options(headless, block_images)
-    _driver_instance = uc.Chrome(options=options, version_main=CHROME_VERSION)
-    return _driver_instance
-
-
-def close_driver():
-    global _driver_instance
-    if _driver_instance is not None:
-        try:
-            _driver_instance.quit()
+            driver.quit()
         except Exception:
             pass
-        _driver_instance = None
 
 
-def wait_for_element(driver, css_selector, timeout=10):
+def _wait_for_element(driver, css_selector, timeout=15):
     try:
         WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, css_selector))
@@ -71,52 +53,63 @@ def wait_for_element(driver, css_selector, timeout=10):
         return False
 
 
-def scroll_to_bottom(driver):
-    try:
-        driver.execute_script(
-            'if(document.body) window.scrollTo(0, document.body.scrollHeight)'
-        )
-    except WebDriverException:
-        pass
-
-
-def get_page_html(driver):
+def _get_page_html(driver):
     return driver.page_source.replace('\x00', '')
 
 
-def scrape_page(url, wait_selector='ol#b_results', wait_timeout=15, extra_wait=3,
+def _has_search_results(html):
+    return 'id="b_results"' in html or 'class="b_algo"' in html
+
+
+def scrape_page(url, wait_timeout=15, extra_wait=3,
                 headless=True, block_images=True, max_retries=3):
     last_error = None
 
     for attempt in range(max_retries):
+        driver = None
         try:
-            driver = get_driver(headless, block_images)
+            driver = _create_driver(headless, block_images)
             driver.get(url)
             time.sleep(2)
 
-            found = wait_for_element(driver, wait_selector, timeout=wait_timeout)
+            found = _wait_for_element(driver, 'ol#b_results', timeout=wait_timeout)
+
             if not found:
-                html = get_page_html(driver)
-                if wait_selector.replace('#', '') in html:
-                    logger.info('Selector found in HTML despite timeout — using page content')
-                    scroll_to_bottom(driver)
+                html = _get_page_html(driver)
+                if _has_search_results(html):
+                    logger.info(
+                        'Results found in HTML despite selector timeout — using page content'
+                    )
+                    try:
+                        driver.execute_script(
+                            'if(document.body) window.scrollTo(0, document.body.scrollHeight)'
+                        )
+                    except WebDriverException:
+                        pass
                     time.sleep(extra_wait)
+                    _safe_quit(driver)
                     return html
 
                 logger.warning(
-                    'Selector %r not found, attempt %d/%d (url=%s, title=%s) — retrying',
-                    wait_selector, attempt + 1, max_retries,
+                    'No results found, attempt %d/%d (url=%s, title=%s)',
+                    attempt + 1, max_retries,
                     driver.current_url[:80], driver.title[:60],
                 )
-                last_error = TimeoutException(f'{wait_selector} not found')
-                close_driver()
+                last_error = TimeoutException('ol#b_results not found')
+                _safe_quit(driver)
                 time.sleep(3 + attempt * 2)
                 continue
 
-            scroll_to_bottom(driver)
+            try:
+                driver.execute_script(
+                    'if(document.body) window.scrollTo(0, document.body.scrollHeight)'
+                )
+            except WebDriverException:
+                pass
             time.sleep(extra_wait)
 
-            html = get_page_html(driver)
+            html = _get_page_html(driver)
+            _safe_quit(driver)
             return html
 
         except WebDriverException as err:
@@ -125,7 +118,7 @@ def scrape_page(url, wait_selector='ol#b_results', wait_timeout=15, extra_wait=3
                 attempt + 1, max_retries, err,
             )
             last_error = err
-            close_driver()
+            _safe_quit(driver)
             time.sleep(3 + attempt * 2)
 
     raise last_error or Exception(f'Failed after {max_retries} attempts')
