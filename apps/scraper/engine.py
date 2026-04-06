@@ -68,11 +68,21 @@ def scrape_bing(keyword_text):
 
 
 def scrape_keyword_sync(keyword_id):
-    keyword = Keyword.objects.get(id=keyword_id)
+    from apps.keywords.cache import (
+        invalidate_search_result_cache,
+        invalidate_user_keyword_cache,
+        set_search_result,
+    )
+    from apps.scraper.rate_limiter import acquire_scrape_slot
+
+    keyword = Keyword.objects.select_related('upload_file').get(id=keyword_id)
+    user_id = keyword.upload_file.user_id
+
     keyword.status = Keyword.Status.PROCESSING
     keyword.save(update_fields=['status', 'updated_at'])
 
     try:
+        acquire_scrape_slot()
         result = scrape_bing(keyword.text)
         SearchResult.objects.update_or_create(
             keyword=keyword,
@@ -81,6 +91,11 @@ def scrape_keyword_sync(keyword_id):
         keyword.status = Keyword.Status.COMPLETED
         keyword.error_message = ''
         keyword.save(update_fields=['status', 'error_message', 'updated_at'])
+
+        keyword.refresh_from_db()
+        set_search_result(keyword.id, keyword)
+        invalidate_user_keyword_cache(user_id)
+
         time.sleep(REQUEST_DELAY_SECONDS)
 
     except (MaxRetriesExceeded, ScrapingError) as err:
@@ -88,6 +103,8 @@ def scrape_keyword_sync(keyword_id):
         keyword.status = Keyword.Status.FAILED
         keyword.error_message = str(err)
         keyword.save(update_fields=['status', 'retry_count', 'error_message', 'updated_at'])
+        invalidate_search_result_cache(keyword.id)
+        invalidate_user_keyword_cache(user_id)
         logger.error(
             'Scraping failed keyword=%r id=%d attempt=%d/%d error=%s',
             keyword.text, keyword.id, keyword.retry_count, MAX_TOTAL_RETRIES,
@@ -99,6 +116,8 @@ def scrape_keyword_sync(keyword_id):
         keyword.status = Keyword.Status.FAILED
         keyword.error_message = f'{type(err).__name__}: {err}'
         keyword.save(update_fields=['status', 'retry_count', 'error_message', 'updated_at'])
+        invalidate_search_result_cache(keyword.id)
+        invalidate_user_keyword_cache(user_id)
         logger.error(
             'Unexpected error keyword=%r id=%d error_type=%s error=%s',
             keyword.text, keyword.id, type(err).__name__, err,
