@@ -4,6 +4,13 @@ from django.db.models import Q
 from django.shortcuts import redirect
 from django.views.generic import DetailView, FormView, ListView
 
+from .cache import (
+    get_keyword_list,
+    get_search_result,
+    invalidate_user_keyword_cache,
+    set_keyword_list,
+    set_search_result,
+)
 from .forms import KeywordUploadForm
 from .models import Keyword
 from .services import create_keywords_from_list, dispatch_scraping
@@ -23,6 +30,7 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)
+        invalidate_user_keyword_cache(self.request.user.id)
 
         if settings.SCRAPING_MODE == 'async':
             msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}. Scraping enqueued — results will appear shortly.'
@@ -38,15 +46,24 @@ class KeywordListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        page = self.request.GET.get('page', 1)
+        status_filter = self.request.GET.get('status', '')
+        user_id = self.request.user.id
+
+        cached = get_keyword_list(user_id, page, status_filter)
+        if cached is not None:
+            return cached
+
         qs = Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
 
-        status_filter = self.request.GET.get('status')
         if status_filter and status_filter in dict(Keyword.Status.choices):
             qs = qs.filter(status=status_filter)
 
-        return qs
+        result = list(qs)
+        set_keyword_list(user_id, page, result, status_filter)
+        return result
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -62,6 +79,18 @@ class KeywordDetailView(LoginRequiredMixin, DetailView):
         return Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
+
+    def get_object(self, queryset=None):
+        keyword_id = self.kwargs['pk']
+
+        cached = get_search_result(keyword_id)
+        if cached is not None:
+            return cached
+
+        obj = super().get_object(queryset)
+        if obj.status == Keyword.Status.COMPLETED:
+            set_search_result(keyword_id, obj)
+        return obj
 
 
 class KeywordSearchView(LoginRequiredMixin, ListView):
