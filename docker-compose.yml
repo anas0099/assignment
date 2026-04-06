@@ -15,6 +15,16 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     environment:
@@ -71,6 +81,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.local
       DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/0
       SCRAPING_MODE: async
       SECRET_KEY: dev-secret-key-not-for-production
       DEBUG: "True"
@@ -78,17 +89,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       topic-init:
         condition: service_completed_successfully
 
   kafka-consumer:
     build: .
     shm_size: 2gb
+    deploy:
+      replicas: 3
     command: python3 kafka/consumer.py
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.local
       DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/0
       SCRAPING_MODE: async
       SECRET_KEY: dev-secret-key-not-for-production
       CHROME_BINARY: /usr/bin/chromium
@@ -99,6 +115,8 @@ services:
       topic-init:
         condition: service_completed_successfully
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:
