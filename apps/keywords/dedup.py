@@ -1,8 +1,11 @@
 import hashlib
+import logging
 import time
 
 from decouple import config
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 DEDUP_TTL = 300
 _DEDUP_KEY = 'upload:dedup:{}:{}'
@@ -21,11 +24,16 @@ def file_hash(file_obj):
 
 
 def is_duplicate(user_id, hash_value):
-    return cache.get(_DEDUP_KEY.format(user_id, hash_value)) is not None
+    key = _DEDUP_KEY.format(user_id, hash_value)
+    result = cache.get(key)
+    logger.debug('dedup check key=%s result=%s', key, result)
+    return result is not None
 
 
 def mark_uploaded(user_id, hash_value):
-    cache.set(_DEDUP_KEY.format(user_id, hash_value), 1, DEDUP_TTL)
+    key = _DEDUP_KEY.format(user_id, hash_value)
+    cache.set(key, 1, DEDUP_TTL)
+    logger.debug('dedup marked key=%s ttl=%d', key, DEDUP_TTL)
 
 
 def _sliding_window_count(user_id):
