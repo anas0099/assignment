@@ -21,7 +21,7 @@ Django 6 handles the web layer and REST API. PostgreSQL stores all data and is p
 
 ## Running locally with Docker
 
-You need Docker and Docker Compose installed.
+Docker and Docker Compose are required.
 
 Clone the repo and start everything:
 
@@ -46,11 +46,11 @@ To stop everything:
 
 ## Environment variables
 
-Copy the example file and fill in your values:
+Copy the example file and fill in the values:
 
     cp .env.example .env
 
-For local development the defaults in docker-compose.yml work out of the box. For production you need to set at minimum:
+For local development the defaults in docker-compose.yml work out of the box. For production the following variables need to be set at minimum:
 
     SECRET_KEY
     DATABASE_URL
@@ -81,7 +81,7 @@ Or on CI the GitHub Actions workflow handles this automatically on every push.
 
 The production app runs at https://bing-scraper-prod-3fce2e7ea328.herokuapp.com
 
-The app is already configured for Heroku. You need the Heroku CLI installed and logged in.
+The app is already configured for Heroku. The Heroku CLI needs to be installed and logged in.
 
 Create the app and add-ons:
 
@@ -129,7 +129,7 @@ If a scrape fails the retry count is incremented and the keyword stays in failed
 
 Kafka sits between the web app and the scraper workers. When a CSV is uploaded, the web process publishes one message per keyword to a topic called keyword-scrape. The consumer process on the worker dyno reads from this topic and dispatches each message to a thread in the pool.
 
-The topic has 18 partitions. This matters because Kafka allows one consumer per partition at a time. With 18 partitions you can run up to 18 consumer processes in parallel across multiple machines, each taking their own slice of work, with no coordination needed between them.
+The topic has 18 partitions. This matters because Kafka allows one consumer per partition at a time. With 18 partitions we can run up to 18 consumer processes in parallel across multiple machines, each taking their own slice of work, with no coordination needed between them.
 
 Messages are committed to Kafka only after a keyword is successfully processed. If the worker crashes mid-batch, Kafka replays the uncommitted messages on restart so nothing is lost. For cloud deployments the app connects to Confluent Cloud using SASL/SSL authentication, configured via the KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD environment variables.
 
@@ -142,7 +142,7 @@ Keyword list pages are cached per user with a 30 second TTL. Each user has their
 
 Individual search result pages are cached per keyword with a 5 minute TTL. Once a keyword is scraped the result does not change, so a longer TTL is fine here. The cache is invalidated if the keyword is re-scraped.
 
-Sessions are stored in Redis using Django's cached_db backend. This means reads are fast because they hit Redis first, but the session data is also written to PostgreSQL as a backup. If Redis restarts the session is loaded from the database instead of being lost, which prevents the CSRF errors you would otherwise see after a container restart.
+Sessions are stored in Redis using Django's cached_db backend. This means reads are fast because they hit Redis first, but the session data is also written to PostgreSQL as a backup. If Redis restarts the session is loaded from the database instead of being lost, which prevents the CSRF errors that would otherwise appear after a container restart.
 
 
 ## Rate limiting
@@ -158,7 +158,7 @@ Upload deduplication works separately from rate limiting. Every uploaded file is
 
 At the thread level, each worker dyno runs a Kafka consumer with a ThreadPoolExecutor. The SCRAPER_WORKERS environment variable controls how many threads run inside one dyno. With SCRAPER_WORKERS=9, nine keywords are scraped in parallel inside a single process.
 
-At the dyno level, you can run multiple worker dynos on Heroku Standard or higher plans. Each dyno is an independent Kafka consumer in the same consumer group. Kafka automatically assigns partitions across all consumers in the group. With 18 partitions and 3 worker dynos, each dyno handles 6 partitions. With 9 threads per dyno that is 27 concurrent scrapes total.
+At the dyno level, multiple worker dynos can be run on Heroku Standard or higher plans. Each dyno is an independent Kafka consumer in the same consumer group. Kafka automatically assigns partitions across all consumers in the group. With 18 partitions and 3 worker dynos, each dyno handles 6 partitions. With 9 threads per dyno that is 27 concurrent scrapes total.
 
 At the database level, the weekly partitioning means that as data grows Postgres only scans the relevant week partition rather than the full table. Old partitions can be detached and dropped instantly without locking anything.
 
