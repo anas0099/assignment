@@ -127,6 +127,46 @@ When a CSV is uploaded the view parses each line, creates a Keyword record with 
 If a scrape fails the retry count is incremented and the keyword stays in failed state. A background sweep thread runs every 30 seconds and re-publishes any failed keywords that have not yet hit the retry limit, applying exponential backoff of 30, 60, 120, 240, and 480 seconds.
 
 
+## Kafka
+
+Kafka sits between the web app and the scraper workers. When a CSV is uploaded, the web process publishes one message per keyword to a topic called keyword-scrape. The consumer process on the worker dyno reads from this topic and dispatches each message to a thread in the pool.
+
+The topic has 18 partitions. This matters because Kafka allows one consumer per partition at a time. With 18 partitions you can run up to 18 consumer processes in parallel across multiple machines, each taking their own slice of work, with no coordination needed between them.
+
+Messages are committed to Kafka only after a keyword is successfully processed. If the worker crashes mid-batch, Kafka replays the uncommitted messages on restart so nothing is lost. For cloud deployments the app connects to Confluent Cloud using SASL/SSL authentication, configured via the KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD environment variables.
+
+
+## Caching
+
+Redis is used in three places.
+
+Keyword list pages are cached per user with a 30 second TTL. Each user has their own cache key so one user's data never leaks into another's view. The cache is invalidated immediately when a new upload happens or when a keyword status changes, so users always see fresh data after an action.
+
+Individual search result pages are cached per keyword with a 5 minute TTL. Once a keyword is scraped the result does not change, so a longer TTL is fine here. The cache is invalidated if the keyword is re-scraped.
+
+Sessions are stored in Redis using Django's cached_db backend. This means reads are fast because they hit Redis first, but the session data is also written to PostgreSQL as a backup. If Redis restarts the session is loaded from the database instead of being lost, which prevents the CSRF errors you would otherwise see after a container restart.
+
+
+## Rate limiting
+
+The scraper has a shared rate limiter across all worker threads. It uses a sliding window counter in Redis keyed to a single global scraper key. The limit is 30 requests per 60 seconds across all workers combined. Before starting each scrape a thread checks this counter and waits if the limit is reached. This prevents hammering Bing with too many requests at once.
+
+CSV uploads are rate limited per user. The default is 10 uploads per hour, tracked with a sliding window in Redis. Each upload timestamp is stored in a list and timestamps outside the window are discarded before counting. When the limit is hit the UI shows an error message with how many minutes remain before the next upload is allowed. The limits are configurable via environment variables UPLOAD_RATE_LIMIT_MAX and UPLOAD_RATE_WINDOW_SECONDS.
+
+Upload deduplication works separately from rate limiting. Every uploaded file is hashed with SHA256 and the hash is stored in Redis with a 5 minute TTL. If the same file is uploaded again within that window the upload is blocked and the user sees a warning message. This prevents accidental double uploads of the same CSV.
+
+
+## How scaling works
+
+At the thread level, each worker dyno runs a Kafka consumer with a ThreadPoolExecutor. The SCRAPER_WORKERS environment variable controls how many threads run inside one dyno. With SCRAPER_WORKERS=9, nine keywords are scraped in parallel inside a single process.
+
+At the dyno level, you can run multiple worker dynos on Heroku Standard or higher plans. Each dyno is an independent Kafka consumer in the same consumer group. Kafka automatically assigns partitions across all consumers in the group. With 18 partitions and 3 worker dynos, each dyno handles 6 partitions. With 9 threads per dyno that is 27 concurrent scrapes total.
+
+At the database level, the weekly partitioning means that as data grows Postgres only scans the relevant week partition rather than the full table. Old partitions can be detached and dropped instantly without locking anything.
+
+The full theoretical ceiling with the current Kafka setup is 18 consumer processes times however many threads per process. In practice the bottleneck is Bing response time and whether the host IP gets rate limited, not compute capacity.
+
+
 ## Upload rules
 
 The same CSV file cannot be uploaded twice within a 5 minute window. This is checked via a SHA256 hash of the file content stored in Redis. If a duplicate is detected the UI shows a warning and the upload is blocked.
