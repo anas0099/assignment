@@ -11,12 +11,17 @@ USER_AGENTS = [
 
 AD_SELECTORS = [
     '.b_ad',
-    '.sb_add',
     'li.b_ad',
-    '.b_adLastChild',
-    '#b_results > .b_ad',
+    '#b_results .b_ad',
+    '#b_topw .b_ad',
     '.b_adTop',
     '.b_adBottom',
+    '.b_adLastChild',
+    '.sb_add',
+    '.sb_adsWv2',
+    '.b_adSlug',
+    '#b_ads_magazine_container > *',
+    '.ads',
 ]
 
 CONNECT_TIMEOUT = 10

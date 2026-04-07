@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from apps.keywords.models import Keyword, SearchResult
 
 from .constants import AD_SELECTORS, BING_SEARCH_URL
+from .monitoring import report_permanent_failure, report_scrape_failure
 from .resilience import MaxRetriesExceeded, ScrapingError, is_captcha_page, is_language_selection_page
 from .utility import scrape_page
 
@@ -15,7 +16,7 @@ REQUEST_DELAY_SECONDS = 3
 MAX_SCRAPE_RETRIES = 3
 MAX_TOTAL_RETRIES = 5
 WAIT_TIMEOUT = 20
-EXTRA_RENDER_WAIT = 5
+EXTRA_RENDER_WAIT = 8
 
 
 def _parse_results(raw_html):
@@ -110,6 +111,9 @@ def scrape_keyword_sync(keyword_id):
             keyword.text, keyword.id, keyword.retry_count, MAX_TOTAL_RETRIES,
             keyword.error_message[:120],
         )
+        report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
+        if keyword.retry_count >= MAX_TOTAL_RETRIES:
+            report_permanent_failure(keyword.id, keyword.text, err)
 
     except Exception as err:
         keyword.retry_count += 1
@@ -122,3 +126,6 @@ def scrape_keyword_sync(keyword_id):
             'Unexpected error keyword=%r id=%d error_type=%s error=%s',
             keyword.text, keyword.id, type(err).__name__, err,
         )
+        report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
+        if keyword.retry_count >= MAX_TOTAL_RETRIES:
+            report_permanent_failure(keyword.id, keyword.text, err)

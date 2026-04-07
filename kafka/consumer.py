@@ -133,7 +133,7 @@ def run_consumer():
 
     consumer.subscribe([KEYWORD_SCRAPE_TOPIC])
     logger.info(
-        'Kafka consumer started — topic=%s workers=%d max_retries=%d',
+        'Kafka consumer started - topic=%s workers=%d max_retries=%d',
         KEYWORD_SCRAPE_TOPIC, MAX_WORKERS, MAX_TOTAL_RETRIES,
     )
 

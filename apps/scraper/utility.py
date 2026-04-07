@@ -105,7 +105,7 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
                 html = _get_page_html(driver)
                 if _has_search_results(html):
                     logger.info(
-                        'Results found in HTML despite selector timeout — using page content'
+                        'Results found in HTML despite selector timeout - using page content'
                     )
                     try:
                         driver.execute_script(

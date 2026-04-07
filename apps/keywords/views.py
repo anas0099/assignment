@@ -64,7 +64,7 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         invalidate_user_keyword_cache(self.request.user.id)
 
         if settings.SCRAPING_MODE == 'async':
-            msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}. Scraping enqueued — results will appear shortly.'
+            msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}. Scraping enqueued - results will appear shortly.'
         else:
             msg = f'Uploaded {len(keyword_texts)} keywords from {file_name}.'
         messages.success(self.request, msg)
