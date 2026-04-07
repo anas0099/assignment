@@ -86,6 +86,8 @@ services:
       SECRET_KEY: dev-secret-key-not-for-production
       DEBUG: "True"
       ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      UPLOAD_RATE_LIMIT_MAX: "10"
+      UPLOAD_RATE_WINDOW_SECONDS: "3600"
     depends_on:
       postgres:
         condition: service_healthy

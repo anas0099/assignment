@@ -4,7 +4,14 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.keywords.dedup import file_hash, is_duplicate, mark_uploaded
+from apps.keywords.dedup import (
+    file_hash,
+    is_duplicate,
+    is_upload_rate_limited,
+    mark_uploaded,
+    record_upload_attempt,
+    upload_rate_limit_status,
+)
 from apps.keywords.models import Keyword
 from apps.keywords.parsers.base import ParseError
 from apps.keywords.services import (
@@ -27,8 +34,20 @@ class KeywordUploadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        user_id = request.user.id
+
+        if is_upload_rate_limited(user_id):
+            _, _, reset_in = upload_rate_limit_status(user_id)
+            return Response(
+                {
+                    'error': 'Upload limit reached (10 uploads per hour).',
+                    'retry_after_seconds': reset_in,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         hash_value = file_hash(uploaded_file)
-        if is_duplicate(request.user.id, hash_value):
+        if is_duplicate(user_id, hash_value):
             return Response(
                 {'error': f'"{uploaded_file.name}" was already uploaded in the last 5 minutes. Please wait before re-uploading the same file.'},
                 status=status.HTTP_409_CONFLICT,
@@ -42,7 +61,8 @@ class KeywordUploadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        mark_uploaded(request.user.id, hash_value)
+        mark_uploaded(user_id, hash_value)
+        record_upload_attempt(user_id)
         upload_file, keywords = create_keywords_from_list(
             request.user, uploaded_file.name, keyword_texts, file_hash=hash_value,
         )

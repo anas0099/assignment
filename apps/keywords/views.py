@@ -11,7 +11,14 @@ from .cache import (
     set_keyword_list,
     set_search_result,
 )
-from .dedup import file_hash, is_duplicate, mark_uploaded
+from .dedup import (
+    file_hash,
+    is_duplicate,
+    is_upload_rate_limited,
+    mark_uploaded,
+    record_upload_attempt,
+    upload_rate_limit_status,
+)
 from .forms import KeywordUploadForm
 from .models import Keyword
 from .services import create_keywords_from_list, dispatch_scraping
@@ -27,6 +34,17 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         uploaded_file = form.cleaned_data['file']
         keyword_texts = form.cleaned_data['parsed_keywords']
         file_name = uploaded_file.name
+        user_id = self.request.user.id
+
+        if is_upload_rate_limited(user_id):
+            _, _, reset_in = upload_rate_limit_status(user_id)
+            minutes = max(1, reset_in // 60)
+            messages.warning(
+                self.request,
+                f'Upload limit reached (10 uploads per hour). Try again in ~{minutes} minute{"s" if minutes != 1 else ""}.',
+            )
+            return self.form_invalid(form)
+
         hash_value = file_hash(uploaded_file)
 
         if is_duplicate(self.request.user.id, hash_value):
@@ -36,7 +54,8 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
             )
             return self.form_invalid(form)
 
-        mark_uploaded(self.request.user.id, hash_value)
+        mark_uploaded(user_id, hash_value)
+        record_upload_attempt(user_id)
         upload_file, keywords = create_keywords_from_list(
             self.request.user, file_name, keyword_texts, file_hash=hash_value,
         )
