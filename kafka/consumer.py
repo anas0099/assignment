@@ -18,7 +18,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
 django.setup()
 
 from confluent_kafka import Consumer, KafkaError
-from config.kafka import KAFKA_BOOTSTRAP_SERVERS, KEYWORD_SCRAPE_TOPIC
+from config.kafka import KEYWORD_SCRAPE_TOPIC, _kafka_conf
 
 logger = logging.getLogger(__name__)
 
@@ -125,12 +125,11 @@ def run_consumer():
     sweep_thread = threading.Thread(target=_sweep_failed_keywords, daemon=True, name='sweep')
     sweep_thread.start()
 
-    consumer = Consumer({
-        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+    consumer = Consumer(_kafka_conf({
         'group.id': 'scraper-workers',
         'auto.offset.reset': 'earliest',
         'enable.auto.commit': False,
-    })
+    }))
 
     consumer.subscribe([KEYWORD_SCRAPE_TOPIC])
     logger.info(

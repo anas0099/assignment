@@ -1,4 +1,3 @@
-#!/bin/bash
 set -e
 
 echo "Waiting for Postgres..."
@@ -17,6 +16,9 @@ echo "Postgres ready."
 
 echo "Running migrations..."
 python3 manage.py migrate --noinput
+
+echo "Creating weekly partitions..."
+python3 manage.py create_weekly_partitions --weeks-ahead 4
 
 echo "Collecting static files..."
 python3 manage.py collectstatic --noinput 2>/dev/null || true

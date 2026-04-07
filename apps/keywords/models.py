@@ -58,6 +58,7 @@ class SearchResult(models.Model):
         Keyword,
         on_delete=models.CASCADE,
         related_name='search_result',
+        db_constraint=False,
     )
     total_ads = models.PositiveIntegerField(default=0)
     total_links = models.PositiveIntegerField(default=0)

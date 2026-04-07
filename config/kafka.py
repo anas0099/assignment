@@ -12,17 +12,32 @@ KAFKA_BOOTSTRAP_SERVERS = config('KAFKA_BOOTSTRAP_SERVERS', default='localhost:9
 KEYWORD_SCRAPE_TOPIC = 'keyword-scrape'
 TOPIC_PARTITIONS = 18
 
+KAFKA_SASL_USERNAME = config('KAFKA_SASL_USERNAME', default='')
+KAFKA_SASL_PASSWORD = config('KAFKA_SASL_PASSWORD', default='')
+
 _producer = None
+
+
+def _kafka_conf(extra=None):
+    conf = {
+        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+    }
+    if KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD:
+        conf.update({
+            'security.protocol': 'SASL_SSL',
+            'sasl.mechanisms': 'PLAIN',
+            'sasl.username': KAFKA_SASL_USERNAME,
+            'sasl.password': KAFKA_SASL_PASSWORD,
+        })
+    if extra:
+        conf.update(extra)
+    return conf
 
 
 def get_producer():
     global _producer
     if _producer is None:
-        _producer = Producer({
-            'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
-            'acks': 'all',
-            'retries': 3,
-        })
+        _producer = Producer(_kafka_conf({'acks': 'all', 'retries': 3}))
         atexit.register(_shutdown_producer)
     return _producer
 
@@ -63,7 +78,7 @@ def publish_keywords(keyword_ids):
 
 
 def ensure_topic():
-    admin = AdminClient({'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS})
+    admin = AdminClient(_kafka_conf())
     topic = NewTopic(
         KEYWORD_SCRAPE_TOPIC,
         num_partitions=TOPIC_PARTITIONS,

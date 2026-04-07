@@ -119,5 +119,20 @@ services:
       redis:
         condition: service_healthy
 
+  partition-scheduler:
+    build: .
+    command: >
+      sh -c "while true; do
+        python manage.py create_weekly_partitions --weeks-ahead 4;
+        sleep 604800;
+      done"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://bing_user:bing_pass@postgres:5432/bing_scraper
+      SECRET_KEY: dev-secret-key-not-for-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
