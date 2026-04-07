@@ -9,6 +9,7 @@ class UploadFile(models.Model):
         related_name='upload_files',
     )
     file_name = models.CharField(max_length=255)
+    file_hash = models.CharField(max_length=64, blank=True, default='')
     total_keywords = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -13,10 +13,11 @@ def parse_keywords_from_file(uploaded_file) -> list[str]:
     return parser.parse(content)
 
 
-def create_keywords_from_list(user, file_name, keyword_texts):
+def create_keywords_from_list(user, file_name, keyword_texts, file_hash=''):
     upload_file = UploadFile.objects.create(
         user=user,
         file_name=file_name,
+        file_hash=file_hash,
         total_keywords=len(keyword_texts),
     )
     keywords = Keyword.objects.bulk_create([

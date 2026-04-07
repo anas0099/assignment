@@ -11,6 +11,7 @@ from .cache import (
     set_keyword_list,
     set_search_result,
 )
+from .dedup import file_hash, is_duplicate, mark_uploaded
 from .forms import KeywordUploadForm
 from .models import Keyword
 from .services import create_keywords_from_list, dispatch_scraping
@@ -23,10 +24,21 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
     def form_valid(self, form):
         from django.conf import settings
 
+        uploaded_file = form.cleaned_data['file']
         keyword_texts = form.cleaned_data['parsed_keywords']
-        file_name = form.cleaned_data['file'].name
+        file_name = uploaded_file.name
+        hash_value = file_hash(uploaded_file)
+
+        if is_duplicate(self.request.user.id, hash_value):
+            messages.warning(
+                self.request,
+                f'"{file_name}" was already uploaded in the last 5 minutes. Please wait before re-uploading the same file.',
+            )
+            return self.form_invalid(form)
+
+        mark_uploaded(self.request.user.id, hash_value)
         upload_file, keywords = create_keywords_from_list(
-            self.request.user, file_name, keyword_texts,
+            self.request.user, file_name, keyword_texts, file_hash=hash_value,
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)

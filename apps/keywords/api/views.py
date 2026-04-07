@@ -4,6 +4,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.keywords.dedup import file_hash, is_duplicate, mark_uploaded
 from apps.keywords.models import Keyword
 from apps.keywords.parsers.base import ParseError
 from apps.keywords.services import (
@@ -25,6 +26,14 @@ class KeywordUploadAPIView(APIView):
                 {'error': 'No file provided.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        hash_value = file_hash(uploaded_file)
+        if is_duplicate(request.user.id, hash_value):
+            return Response(
+                {'error': f'"{uploaded_file.name}" was already uploaded in the last 5 minutes. Please wait before re-uploading the same file.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         try:
             keyword_texts = parse_keywords_from_file(uploaded_file)
         except ParseError as e:
@@ -33,8 +42,9 @@ class KeywordUploadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        mark_uploaded(request.user.id, hash_value)
         upload_file, keywords = create_keywords_from_list(
-            request.user, uploaded_file.name, keyword_texts,
+            request.user, uploaded_file.name, keyword_texts, file_hash=hash_value,
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)

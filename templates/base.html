@@ -27,8 +27,13 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {% if messages %}
             {% for message in messages %}
-                <div class="mb-4 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
-                    {{ message }}
+                <div class="mb-4 p-4 rounded-lg flex items-start gap-3
+                    {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+                    {% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200
+                    {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-300
+                    {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+                    {% if message.tags == 'warning' %}<span class="text-yellow-500 font-bold shrink-0">&#9888;</span>{% endif %}
+                    <span>{{ message }}</span>
                 </div>
             {% endfor %}
         {% endif %}
