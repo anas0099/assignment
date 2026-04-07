@@ -84,9 +84,7 @@ CACHES = {
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'IGNORE_EXCEPTIONS': True,
-            'CONNECTION_POOL_KWARGS': {
-                'ssl_cert_reqs': None,
-            },
+            **({'CONNECTION_POOL_KWARGS': {'ssl_cert_reqs': None}} if REDIS_URL.startswith('rediss://') else {}),
         },
         'KEY_PREFIX': 'bing',
     }

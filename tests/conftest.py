@@ -1,10 +1,10 @@
 import sys
 from types import ModuleType
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.cache.backends.locmem import LocMemCache
+from django.core.cache import cache
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
@@ -41,8 +41,7 @@ def api_client(user):
 
 
 @pytest.fixture(autouse=True)
-def locmem_cache():
-    loc = LocMemCache('test', {})
-    with patch('apps.keywords.cache.cache', loc), patch('apps.scraper.rate_limiter.cache', loc):
-        yield loc
-    loc.clear()
+def reset_cache():
+    cache.clear()
+    yield
+    cache.clear()
