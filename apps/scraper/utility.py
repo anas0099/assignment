@@ -1,3 +1,11 @@
+"""
+Low-level browser automation for scraping Bing search pages.
+
+Each call to scrape_page spins up a fresh Chrome instance, loads the URL,
+waits for results to render, captures the full HTML, and then closes the
+browser. Keeping drivers short-lived avoids memory leaks and session
+fingerprinting across requests.
+"""
 import logging
 import os
 import threading
@@ -24,6 +32,14 @@ _driver_lock = threading.Lock()
 
 
 def _create_driver(headless=True, block_images=True):
+    """Create and return a configured undetected Chrome instance.
+
+    Applies anti-detection measures: overrides navigator.webdriver via CDP,
+    sets a realistic user-agent, disables the AutomationControlled feature
+    flag, and optionally blocks image loading to reduce bandwidth.
+    The driver_lock ensures only one Chrome process starts at a time,
+    which prevents race conditions under high thread concurrency.
+    """
     options = uc.ChromeOptions()
     if CHROME_BINARY:
         options.binary_location = CHROME_BINARY
@@ -63,6 +79,7 @@ def _create_driver(headless=True, block_images=True):
 
 
 def _safe_quit(driver):
+    """Quietly close the Chrome driver, ignoring any errors on shutdown."""
     if driver is not None:
         try:
             driver.quit()
@@ -71,6 +88,10 @@ def _safe_quit(driver):
 
 
 def _wait_for_element(driver, css_selector, timeout=15):
+    """Wait up to timeout seconds for a CSS selector to appear in the DOM.
+
+    Returns True if found within the timeout, False otherwise.
+    """
     try:
         WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, css_selector))
@@ -81,15 +102,28 @@ def _wait_for_element(driver, css_selector, timeout=15):
 
 
 def _get_page_html(driver):
+    """Return the full page source, stripping NUL bytes that break PostgreSQL text storage."""
     return driver.page_source.replace('\x00', '')
 
 
 def _has_search_results(html):
+    """Return True if the HTML contains Bing result markers, even if the CSS selector timed out."""
     return 'id="b_results"' in html or 'class="b_algo"' in html
 
 
 def scrape_page(url, wait_timeout=15, extra_wait=3,
                 headless=True, block_images=True, max_retries=3):
+    """Load a URL in Chrome and return the fully rendered HTML.
+
+    Waits for ol#b_results to appear (Bing results list), then waits an
+    additional extra_wait seconds for ads and dynamic content to finish
+    loading before capturing the page source.
+
+    Falls back to returning partial HTML if results markers are present in
+    the DOM even though the explicit selector timed out.
+
+    Raises MaxRetriesExceeded if all attempts fail.
+    """
     last_error = None
 
     for attempt in range(max_retries):

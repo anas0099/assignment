@@ -9,6 +9,10 @@ _PARSERS: list[type[BaseKeywordParser]] = [
 
 
 def get_parser(filename: str) -> BaseKeywordParser:
+    """Return the right parser instance for a given filename.
+
+    Raises ParseError if no registered parser handles the file extension.
+    """
     ext = os.path.splitext(filename)[1].lower()
     for parser_cls in _PARSERS:
         if ext in parser_cls.supported_extensions():
@@ -18,6 +22,7 @@ def get_parser(filename: str) -> BaseKeywordParser:
 
 
 def get_supported_extensions() -> list[str]:
+    """Return a flat list of all file extensions supported across all registered parsers."""
     extensions = []
     for parser_cls in _PARSERS:
         extensions.extend(parser_cls.supported_extensions())

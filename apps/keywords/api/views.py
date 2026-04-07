@@ -24,9 +24,15 @@ from .serializers import KeywordListSerializer, KeywordSerializer, UploadFileSer
 
 
 class KeywordUploadAPIView(APIView):
+    """REST endpoint for uploading a CSV of keywords.
+
+    Enforces rate limiting and deduplication before parsing the file.
+    On success it creates Keyword records and dispatches them to Kafka.
+    """
     parser_classes = [MultiPartParser]
 
     def post(self, request):
+        """Accept the uploaded file, validate it, and kick off scraping."""
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             return Response(
@@ -79,9 +85,14 @@ class KeywordUploadAPIView(APIView):
 
 
 class KeywordListAPIView(ListAPIView):
+    """Returns a paginated list of keywords belonging to the logged-in user.
+
+    Supports ?status= and ?q= query params for filtering.
+    """
     serializer_class = KeywordListSerializer
 
     def get_queryset(self):
+        """Filter keywords to the current user, with optional status and text filters."""
         qs = Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
@@ -98,16 +109,24 @@ class KeywordListAPIView(ListAPIView):
 
 
 class KeywordDetailAPIView(RetrieveAPIView):
+    """Returns full details for a single keyword including its scrape result."""
     serializer_class = KeywordSerializer
 
     def get_queryset(self):
+        """Scope the lookup to keywords owned by the current user."""
         return Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
 
 
 class KeywordStatusAPIView(APIView):
+    """Returns a lightweight status list for all of the user's keywords.
+
+    Used by the frontend to poll for status changes without loading full details.
+    """
+
     def get(self, request):
+        """Return id, text, and status for every keyword belonging to the current user."""
         keywords = Keyword.objects.filter(
             upload_file__user=request.user,
         ).values('id', 'text', 'status')

@@ -5,16 +5,24 @@ from django.db import migrations, models
 
 
 def _week_range(d):
+    """Return (monday, next_monday) for the ISO week containing date d."""
     monday = d - timedelta(days=d.weekday())
     return monday, monday + timedelta(days=7)
 
 
 def _partition_suffix(d):
+    """Return a partition name suffix like 2026_w15 for a given date."""
     year, week, _ = d.isocalendar()
     return f'{year}_w{week:02d}'
 
 
 def convert_to_partitioned(apps, schema_editor):
+    """Migrate the keyword and search result tables to range-partitioned versions.
+
+    Backs up existing data, drops the original tables, recreates them as
+    partitioned parent tables, creates a default partition and one for the
+    current week, then restores all data from the backups.
+    """
     from django.db import connection
 
     today = date.today()
@@ -112,6 +120,7 @@ def convert_to_partitioned(apps, schema_editor):
 
 
 def reverse_partitioned(apps, schema_editor):
+    """Reversing this migration is not supported. Partitioned tables cannot be trivially reverted."""
     pass
 
 

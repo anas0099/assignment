@@ -34,12 +34,18 @@ def _backoff_seconds(retry_count):
 
 
 def _signal_handler(signum, frame):
+    """Catch SIGINT/SIGTERM and tell the consumer loop to stop gracefully."""
     global running
     running = False
     logger.info('Shutdown signal received, closing consumer...')
 
 
 def _process_keyword(keyword_id):
+    """Scrape a single keyword and log the outcome.
+
+    This runs inside a thread pool worker. Any unhandled exception is caught
+    and logged so a bad keyword does not crash the whole worker thread.
+    """
     from apps.scraper.engine import scrape_keyword_sync
     from apps.keywords.models import Keyword
     try:
@@ -117,6 +123,16 @@ def _sweep_failed_keywords():
 
 
 def run_consumer():
+    """Start the Kafka consumer loop and the background retry sweep thread.
+
+    Reads from the keyword-scrape topic and dispatches each message to the
+    thread pool. Offsets are committed only after the job is submitted to
+    the pool (not after it completes) so messages are not lost if the
+    process crashes before a worker thread finishes.
+
+    Blocks until a shutdown signal is received, then drains the thread pool
+    and closes the Kafka consumer cleanly.
+    """
     global running
 
     signal.signal(signal.SIGINT, _signal_handler)
