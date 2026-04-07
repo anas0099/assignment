@@ -75,14 +75,18 @@ class TestSearchResultCache:
 
 
 class TestRateLimiter:
-    def test_first_request_increments_counter(self, locmem_cache):
-        acquire_scrape_slot()
-        assert locmem_cache.get(RATE_LIMIT_KEY) == 1
+    def test_first_request_increments_counter(self):
+        from django.core.cache import cache as django_cache
 
-    def test_counter_accumulates(self, locmem_cache):
+        acquire_scrape_slot()
+        assert django_cache.get(RATE_LIMIT_KEY) == 1
+
+    def test_counter_accumulates(self):
+        from django.core.cache import cache as django_cache
+
         for _ in range(5):
             acquire_scrape_slot()
-        assert locmem_cache.get(RATE_LIMIT_KEY) == 5
+        assert django_cache.get(RATE_LIMIT_KEY) == 5
 
     def test_blocks_then_proceeds_when_limit_reached(self):
         calls = [0]

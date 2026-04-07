@@ -22,7 +22,12 @@ def convert_to_partitioned(apps, schema_editor):
     Backs up existing data, drops the original tables, recreates them as
     partitioned parent tables, creates a default partition and one for the
     current week, then restores all data from the backups.
+
+    No-op on non-PostgreSQL backends (e.g. SQLite used in tests).
     """
+    if schema_editor.connection.vendor != 'postgresql':
+        return
+
     from django.db import connection
 
     today = date.today()
