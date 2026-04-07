@@ -23,24 +23,6 @@ python3 manage.py create_weekly_partitions --weeks-ahead 4
 echo "Collecting static files..."
 python3 manage.py collectstatic --noinput 2>/dev/null || true
 
-if [ -z "$(python3 -c "
-import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
-django.setup()
-from django.contrib.auth import get_user_model
-User = get_user_model()
-print('exists' if User.objects.filter(is_superuser=True).exists() else '')
-")" ]; then
-    echo "Creating default superuser..."
-    python3 -c "
-import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
-django.setup()
-from django.contrib.auth import get_user_model
-User = get_user_model()
-"
-fi
-
 echo "Starting gunicorn..."
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:8000 \

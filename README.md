@@ -31,7 +31,9 @@ Clone the repo and start everything:
 
 The first startup takes a few minutes because it builds the Chrome image. Once all containers are healthy, visit http://localhost:8000
 
-A default admin user is created automatically on first run with username admin and password admin123. You can also sign up as a new user from the UI.
+Sign up for a new account directly from the UI, or create a superuser with:
+
+    docker compose exec web python manage.py createsuperuser
 
 To watch the scraper logs:
 
@@ -112,10 +114,6 @@ Deploy:
 Scale dynos:
 
     heroku ps:scale web=1 worker=1
-
-Create your first user:
-
-    heroku run python manage.py createsuperuser
 
 For Kafka, the app works with Confluent Cloud. Create a cluster, create a topic named keyword-scrape with 18 partitions, generate an API key, and use those credentials in the config above.
 
