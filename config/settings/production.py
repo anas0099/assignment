@@ -5,7 +5,11 @@ from decouple import config
 
 DEBUG = False
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in config('ALLOWED_HOSTS', default='').split(',')
+    if h.strip()
+]
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -14,6 +18,10 @@ DATABASES = {
         ssl_require=True,
     )
 }
+
+MIDDLEWARE = [
+    'config.middleware.NonWWWRedirectMiddleware',
+] + MIDDLEWARE
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True
