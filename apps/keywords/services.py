@@ -32,16 +32,14 @@ def create_keywords_from_list(user, file_name, keyword_texts, file_hash=''):
         file_hash=file_hash,
         total_keywords=len(keyword_texts),
     )
-    keywords = Keyword.objects.bulk_create([
-        Keyword(upload_file=upload_file, text=text)
-        for text in keyword_texts
-    ])
+    keywords = Keyword.objects.bulk_create([Keyword(upload_file=upload_file, text=text) for text in keyword_texts])
     return upload_file, keywords
 
 
 def _publish_to_kafka(keyword_id):
     """Publish a single keyword ID to the Kafka topic for re-queuing."""
     from config.kafka import publish_keywords
+
     publish_keywords([keyword_id])
 
 
@@ -56,15 +54,19 @@ def dispatch_scraping(keyword_ids):
 
     if settings.SCRAPING_MODE == 'async':
         from config.kafka import publish_keywords
+
         publish_keywords(keyword_ids)
         logger.info('Published %d keywords to Kafka', len(keyword_ids))
     else:
         from apps.scraper.engine import scrape_keyword_sync
+
         for keyword_id in keyword_ids:
             try:
                 scrape_keyword_sync(keyword_id)
             except Exception as err:
                 logger.error(
                     'Failed to scrape keyword_id=%d error_type=%s error=%s',
-                    keyword_id, type(err).__name__, err,
+                    keyword_id,
+                    type(err).__name__,
+                    err,
                 )

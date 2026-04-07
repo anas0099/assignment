@@ -44,14 +44,17 @@ def create_partition(cursor, table, d: date):
 
 def list_partitions(cursor, table):
     """Return a list of partition table names for the given parent table."""
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT c.relname
         FROM pg_inherits i
         JOIN pg_class c ON c.oid = i.inhrelid
         JOIN pg_class p ON p.oid = i.inhparent
         WHERE p.relname = %s
         ORDER BY c.relname
-    """, [table])
+    """,
+        [table],
+    )
     return [row[0] for row in cursor.fetchall()]
 
 

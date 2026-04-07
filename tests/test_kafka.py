@@ -28,12 +28,15 @@ class TestDispatch:
     @patch('config.kafka.publish_keywords')
     def test_async_upload_keywords_stay_pending(self, _, settings, api_client):
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         settings.SCRAPING_MODE = 'async'
         csv = SimpleUploadedFile('k.csv', b'mango,grape', content_type='text/csv')
         api_client.post('/api/keywords/upload/', {'file': csv}, format='multipart')
-        statuses = list(Keyword.objects.filter(
-            upload_file__user=api_client.user,
-        ).values_list('status', flat=True))
+        statuses = list(
+            Keyword.objects.filter(
+                upload_file__user=api_client.user,
+            ).values_list('status', flat=True)
+        )
         assert all(s == Keyword.Status.PENDING for s in statuses)
 
 
@@ -42,6 +45,7 @@ class TestConsumerWorker:
     @patch('apps.scraper.engine.scrape_keyword_sync')
     def test_process_keyword_calls_sync_scraper(self, mock_sync, user):
         from kafka.consumer import _process_keyword
+
         upload = UploadFile.objects.create(user=user, file_name='t.csv', total_keywords=1)
         kw = Keyword.objects.create(upload_file=upload, text='peach')
         _process_keyword(kw.id)

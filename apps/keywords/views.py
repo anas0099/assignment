@@ -31,6 +31,7 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
     and dispatching them to Kafka. Shows flash messages to the user for
     limit errors, duplicates, and successful uploads.
     """
+
     template_name = 'keywords/upload.html'
     form_class = KeywordUploadForm
 
@@ -64,7 +65,10 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         mark_uploaded(user_id, hash_value)
         record_upload_attempt(user_id)
         upload_file, keywords = create_keywords_from_list(
-            self.request.user, file_name, keyword_texts, file_hash=hash_value,
+            self.request.user,
+            file_name,
+            keyword_texts,
+            file_hash=hash_value,
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)
@@ -85,6 +89,7 @@ class KeywordListView(LoginRequiredMixin, ListView):
     database on every page load. The cache is invalidated when a new upload
     happens or a keyword status changes.
     """
+
     template_name = 'keywords/list.html'
     context_object_name = 'keywords'
     paginate_by = 20
@@ -123,6 +128,7 @@ class KeywordDetailView(LoginRequiredMixin, DetailView):
     The result object is cached after the first load. Only completed keywords
     are cached since pending/failed ones may still change.
     """
+
     template_name = 'keywords/detail.html'
     context_object_name = 'keyword'
 
@@ -152,6 +158,7 @@ class KeywordSearchView(LoginRequiredMixin, ListView):
     Returns an empty queryset when no search query is provided so the
     template can show a prompt instead of rendering all keywords.
     """
+
     template_name = 'keywords/search.html'
     context_object_name = 'keywords'
     paginate_by = 20
@@ -161,11 +168,13 @@ class KeywordSearchView(LoginRequiredMixin, ListView):
         query = self.request.GET.get('q', '').strip()
         if not query:
             return Keyword.objects.none()
-        return Keyword.objects.filter(
-            upload_file__user=self.request.user,
-        ).filter(
-            Q(text__icontains=query) | Q(upload_file__file_name__icontains=query)
-        ).select_related('upload_file', 'search_result')
+        return (
+            Keyword.objects.filter(
+                upload_file__user=self.request.user,
+            )
+            .filter(Q(text__icontains=query) | Q(upload_file__file_name__icontains=query))
+            .select_related('upload_file', 'search_result')
+        )
 
     def get_context_data(self, **kwargs):
         """Pass the search query back to the template so the input stays populated."""

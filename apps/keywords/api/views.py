@@ -29,6 +29,7 @@ class KeywordUploadAPIView(APIView):
     Enforces rate limiting and deduplication before parsing the file.
     On success it creates Keyword records and dispatches them to Kafka.
     """
+
     parser_classes = [MultiPartParser]
 
     def post(self, request):
@@ -55,7 +56,9 @@ class KeywordUploadAPIView(APIView):
         hash_value = file_hash(uploaded_file)
         if is_duplicate(user_id, hash_value):
             return Response(
-                {'error': f'"{uploaded_file.name}" was already uploaded in the last 5 minutes. Please wait before re-uploading the same file.'},
+                {
+                    'error': f'"{uploaded_file.name}" was already uploaded in the last 5 minutes. Please wait before re-uploading the same file.'
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -70,7 +73,10 @@ class KeywordUploadAPIView(APIView):
         mark_uploaded(user_id, hash_value)
         record_upload_attempt(user_id)
         upload_file, keywords = create_keywords_from_list(
-            request.user, uploaded_file.name, keyword_texts, file_hash=hash_value,
+            request.user,
+            uploaded_file.name,
+            keyword_texts,
+            file_hash=hash_value,
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)
@@ -89,6 +95,7 @@ class KeywordListAPIView(ListAPIView):
 
     Supports ?status= and ?q= query params for filtering.
     """
+
     serializer_class = KeywordListSerializer
 
     def get_queryset(self):
@@ -110,6 +117,7 @@ class KeywordListAPIView(ListAPIView):
 
 class KeywordDetailAPIView(RetrieveAPIView):
     """Returns full details for a single keyword including its scrape result."""
+
     serializer_class = KeywordSerializer
 
     def get_queryset(self):

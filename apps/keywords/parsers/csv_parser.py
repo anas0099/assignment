@@ -7,7 +7,7 @@ from .base import BaseKeywordParser, ParseError
 class CSVKeywordParser(BaseKeywordParser):
     """Parses CSV files where each cell is treated as a keyword.
 
-    Handles multi-column CSVs — every non-empty cell across all rows is
+    Handles multi-column CSVs - every non-empty cell across all rows is
     collected. Empty cells and whitespace-only values are skipped.
     """
 

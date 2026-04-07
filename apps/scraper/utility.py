@@ -6,22 +6,24 @@ waits for results to render, captures the full HTML, and then closes the
 browser. Keeping drivers short-lived avoids memory leaks and session
 fingerprinting across requests.
 """
+
 import logging
 import os
 import threading
 import time
 
 import certifi
+
 os.environ.setdefault('SSL_CERT_FILE', certifi.where())
 os.environ.setdefault('REQUESTS_CA_BUNDLE', certifi.where())
 
-from apps.scraper.resilience import MaxRetriesExceeded
-
 import undetected_chromedriver as uc
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException, WebDriverException
+
+from apps.scraper.resilience import MaxRetriesExceeded
 
 logger = logging.getLogger(__name__)
 
@@ -66,15 +68,16 @@ def _create_driver(headless=True, block_images=True):
         driver_kwargs['driver_executable_path'] = CHROMEDRIVER_PATH
     with _driver_lock:
         driver = uc.Chrome(**driver_kwargs)
-    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-        'userAgent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
-        ),
-    })
-    driver.execute_script(
-        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    driver.execute_cdp_cmd(
+        'Network.setUserAgentOverride',
+        {
+            'userAgent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+            ),
+        },
     )
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
 
@@ -93,9 +96,7 @@ def _wait_for_element(driver, css_selector, timeout=15):
     Returns True if found within the timeout, False otherwise.
     """
     try:
-        WebDriverWait(driver, timeout).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, css_selector))
-        )
+        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.CSS_SELECTOR, css_selector)))
         return True
     except TimeoutException:
         return False
@@ -111,8 +112,7 @@ def _has_search_results(html):
     return 'id="b_results"' in html or 'class="b_algo"' in html
 
 
-def scrape_page(url, wait_timeout=15, extra_wait=3,
-                headless=True, block_images=True, max_retries=3):
+def scrape_page(url, wait_timeout=15, extra_wait=3, headless=True, block_images=True, max_retries=3):
     """Load a URL in Chrome and return the fully rendered HTML.
 
     Waits for ol#b_results to appear (Bing results list), then waits an
@@ -138,13 +138,9 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
             if not found:
                 html = _get_page_html(driver)
                 if _has_search_results(html):
-                    logger.info(
-                        'Results found in HTML despite selector timeout - using page content'
-                    )
+                    logger.info('Results found in HTML despite selector timeout - using page content')
                     try:
-                        driver.execute_script(
-                            'if(document.body) window.scrollTo(0, document.body.scrollHeight)'
-                        )
+                        driver.execute_script('if(document.body) window.scrollTo(0, document.body.scrollHeight)')
                     except WebDriverException:
                         pass
                     time.sleep(extra_wait)
@@ -153,8 +149,10 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
 
                 logger.warning(
                     'No results found, attempt %d/%d (url=%s, title=%s)',
-                    attempt + 1, max_retries,
-                    driver.current_url[:80], driver.title[:60],
+                    attempt + 1,
+                    max_retries,
+                    driver.current_url[:80],
+                    driver.title[:60],
                 )
                 last_error = TimeoutException('ol#b_results not found')
                 _safe_quit(driver)
@@ -162,9 +160,7 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
                 continue
 
             try:
-                driver.execute_script(
-                    'if(document.body) window.scrollTo(0, document.body.scrollHeight)'
-                )
+                driver.execute_script('if(document.body) window.scrollTo(0, document.body.scrollHeight)')
             except WebDriverException:
                 pass
             time.sleep(extra_wait)
@@ -176,12 +172,13 @@ def scrape_page(url, wait_timeout=15, extra_wait=3,
         except Exception as err:
             logger.warning(
                 'Browser error on attempt %d/%d: %s: %s',
-                attempt + 1, max_retries, type(err).__name__, err,
+                attempt + 1,
+                max_retries,
+                type(err).__name__,
+                err,
             )
             last_error = err
             _safe_quit(driver)
             time.sleep(3 + attempt * 2)
 
-    raise MaxRetriesExceeded(
-        f'Scraping failed after {max_retries} attempts: {last_error}'
-    ) from last_error
+    raise MaxRetriesExceeded(f'Scraping failed after {max_retries} attempts: {last_error}') from last_error

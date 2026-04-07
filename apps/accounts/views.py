@@ -13,6 +13,7 @@ class SignUpView(FormView):
     Redirects already-authenticated users straight to the dashboard so they
     cannot accidentally create a second account.
     """
+
     template_name = 'accounts/signup.html'
     form_class = SignUpForm
 
@@ -35,6 +36,7 @@ class LoginView(FormView):
     Supports a ?next= query param so users land back on the page they were
     trying to reach before being redirected to login.
     """
+
     template_name = 'accounts/login.html'
     form_class = LoginForm
 
@@ -78,12 +80,14 @@ class LogoutView(View):
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     """Landing page after login showing a summary of the user's scraping activity."""
+
     template_name = 'dashboard.html'
 
     def get_context_data(self, **kwargs):
         """Add keyword counts to the template context for the summary cards."""
         context = super().get_context_data(**kwargs)
         from apps.keywords.models import Keyword
+
         user_keywords = Keyword.objects.filter(upload_file__user=self.request.user)
         context['total_keywords'] = user_keywords.count()
         context['completed_keywords'] = user_keywords.filter(status='completed').count()

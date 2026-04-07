@@ -14,6 +14,7 @@ class SignUpAPIView(APIView):
     Returns a DRF token on success so the client can immediately start
     making authenticated requests without a separate login call.
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -34,6 +35,7 @@ class LoginAPIView(APIView):
     Returns the same token format as SignUpAPIView so clients can handle
     both responses the same way.
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request):

@@ -11,11 +11,14 @@ class KeywordUploadForm(forms.Form):
     Parsing happens inside clean_file so any format errors surface as
     Django form validation errors before the view logic runs.
     """
+
     file = forms.FileField(
-        widget=forms.FileInput(attrs={
-            'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100',
-            'accept': ','.join(get_supported_extensions()),
-        }),
+        widget=forms.FileInput(
+            attrs={
+                'class': 'block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100',
+                'accept': ','.join(get_supported_extensions()),
+            }
+        ),
     )
 
     def clean_file(self):
@@ -28,12 +31,11 @@ class KeywordUploadForm(forms.Form):
         uploaded_file = self.cleaned_data['file']
 
         import os
+
         ext = os.path.splitext(uploaded_file.name)[1].lower()
         allowed = get_supported_extensions()
         if ext not in allowed:
-            raise forms.ValidationError(
-                f'Unsupported file type "{ext or "(none)"}". Please upload a CSV file.'
-            )
+            raise forms.ValidationError(f'Unsupported file type "{ext or "(none)"}". Please upload a CSV file.')
 
         try:
             keywords = parse_keywords_from_file(uploaded_file)

@@ -4,6 +4,7 @@ Shared rate limiter for the Bing scraper.
 Uses a single Redis counter shared across all worker threads and processes.
 The counter resets automatically after WINDOW_SECONDS via the Redis TTL.
 """
+
 import logging
 import time
 
@@ -52,6 +53,8 @@ def acquire_scrape_slot():
             return
         logger.info(
             'Rate limit reached (%d/%d), waiting %ds...',
-            count, MAX_REQUESTS_PER_WINDOW, POLL_INTERVAL_SECONDS,
+            count,
+            MAX_REQUESTS_PER_WINDOW,
+            POLL_INTERVAL_SECONDS,
         )
         time.sleep(POLL_INTERVAL_SECONDS)

@@ -4,6 +4,7 @@ Exceptions and page-detection helpers for the Bing scraper.
 Keeps error types and detection logic separate from the scraping
 mechanics so each can be tested in isolation.
 """
+
 import logging
 
 logger = logging.getLogger(__name__)

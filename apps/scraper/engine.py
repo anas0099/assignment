@@ -2,6 +2,7 @@
 Scraping orchestration: build the Bing URL, run the browser, parse results,
 and persist everything to the database.
 """
+
 import logging
 import time
 
@@ -58,10 +59,7 @@ def scrape_bing(keyword_text):
     Raises ScrapingError if the page is a captcha or language selection screen.
     Raises MaxRetriesExceeded if the browser fails on all attempts.
     """
-    search_url = (
-        f'{BING_SEARCH_URL}?q={keyword_text.replace(" ", "+")}'
-        f'&cc=US&setlang=en-US&mkt=en-US'
-    )
+    search_url = f'{BING_SEARCH_URL}?q={keyword_text.replace(" ", "+")}&cc=US&setlang=en-US&mkt=en-US'
 
     raw_html = scrape_page(
         url=search_url,
@@ -136,7 +134,10 @@ def scrape_keyword_sync(keyword_id):
         invalidate_user_keyword_cache(user_id)
         logger.error(
             'Scraping failed keyword=%r id=%d attempt=%d/%d error=%s',
-            keyword.text, keyword.id, keyword.retry_count, MAX_TOTAL_RETRIES,
+            keyword.text,
+            keyword.id,
+            keyword.retry_count,
+            MAX_TOTAL_RETRIES,
             keyword.error_message[:120],
         )
         report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
@@ -152,7 +153,10 @@ def scrape_keyword_sync(keyword_id):
         invalidate_user_keyword_cache(user_id)
         logger.error(
             'Unexpected error keyword=%r id=%d error_type=%s error=%s',
-            keyword.text, keyword.id, type(err).__name__, err,
+            keyword.text,
+            keyword.id,
+            type(err).__name__,
+            err,
         )
         report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
         if keyword.retry_count >= MAX_TOTAL_RETRIES:

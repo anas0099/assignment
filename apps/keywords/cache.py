@@ -8,6 +8,7 @@ delete them individually.
 
 Search result cache is a simple key-per-keyword with a fixed TTL.
 """
+
 import logging
 
 from django.core.cache import cache

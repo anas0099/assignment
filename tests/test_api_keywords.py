@@ -35,6 +35,7 @@ class TestKeywordUpload:
 
     def test_upload_requires_auth(self):
         from rest_framework.test import APIClient
+
         r = APIClient().post('/api/keywords/upload/', {'file': _csv()}, format='multipart')
         assert r.status_code == 401
 

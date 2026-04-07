@@ -29,12 +29,14 @@ def _kafka_conf(extra=None):
         'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
     }
     if KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD:
-        conf.update({
-            'security.protocol': 'SASL_SSL',
-            'sasl.mechanisms': 'PLAIN',
-            'sasl.username': KAFKA_SASL_USERNAME,
-            'sasl.password': KAFKA_SASL_PASSWORD,
-        })
+        conf.update(
+            {
+                'security.protocol': 'SASL_SSL',
+                'sasl.mechanisms': 'PLAIN',
+                'sasl.username': KAFKA_SASL_USERNAME,
+                'sasl.password': KAFKA_SASL_PASSWORD,
+            }
+        )
     if extra:
         conf.update(extra)
     return conf
@@ -72,7 +74,9 @@ def _delivery_callback(err, msg):
     else:
         logger.info(
             'Kafka message delivered to %s [%d] @ %d',
-            msg.topic(), msg.partition(), msg.offset(),
+            msg.topic(),
+            msg.partition(),
+            msg.offset(),
         )
 
 
@@ -108,7 +112,7 @@ def publish_keywords(keyword_ids):
 def ensure_topic():
     """Create the scrape topic if it does not already exist.
 
-    Safe to call on every startup — TopicExistsError is swallowed silently.
+    Safe to call on every startup - TopicExistsError is swallowed silently.
     The topic is created with TOPIC_PARTITIONS partitions so up to that many
     consumer processes can work in parallel.
     """

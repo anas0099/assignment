@@ -8,6 +8,7 @@ class UploadFile(models.Model):
     Stores the original filename, a SHA256 hash of the file content for
     deduplication, and how many keywords were parsed from it.
     """
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -33,8 +34,10 @@ class Keyword(models.Model):
     retry_count tracks how many times scraping has been attempted.
     error_message stores the last failure reason for debugging.
     """
+
     class Status(models.TextChoices):
         """The processing states a keyword moves through during its lifecycle."""
+
         PENDING = 'pending', 'Pending'
         PROCESSING = 'processing', 'Processing'
         COMPLETED = 'completed', 'Completed'
@@ -76,6 +79,7 @@ class SearchResult(models.Model):
     table uses PostgreSQL range partitioning with a composite primary key,
     which prevents standard FK constraints from working across partitions.
     """
+
     keyword = models.OneToOneField(
         Keyword,
         on_delete=models.CASCADE,

@@ -17,20 +17,26 @@ class Command(BaseCommand):
     The --drop-old flag can be used to clean up partitions older than --keep-weeks,
     which is safe since dropping a partition is instant and lock-free.
     """
+
     help = 'Create PostgreSQL weekly partitions for Keyword and SearchResult tables'
 
     def add_arguments(self, parser):
         """Register --weeks-ahead, --drop-old, and --keep-weeks arguments."""
         parser.add_argument(
-            '--weeks-ahead', type=int, default=4,
+            '--weeks-ahead',
+            type=int,
+            default=4,
             help='How many future weeks to pre-create (default: 4)',
         )
         parser.add_argument(
-            '--drop-old', action='store_true',
+            '--drop-old',
+            action='store_true',
             help='Drop partitions older than --keep-weeks',
         )
         parser.add_argument(
-            '--keep-weeks', type=int, default=8,
+            '--keep-weeks',
+            type=int,
+            default=8,
             help='Weeks of history to keep when using --drop-old (default: 8)',
         )
 

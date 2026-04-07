@@ -21,3 +21,5 @@ pytest-django
 pytest-cov
 responses
 fakeredis
+pre-commit
+ruff

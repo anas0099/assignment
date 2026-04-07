@@ -11,6 +11,7 @@ class SignUpSerializer(serializers.Serializer):
     Uniqueness checks on username and email are done here rather than in the
     view to keep validation logic in one place.
     """
+
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
@@ -38,5 +39,6 @@ class SignUpSerializer(serializers.Serializer):
 
 class LoginSerializer(serializers.Serializer):
     """Validates login credentials passed to the REST API."""
+
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
