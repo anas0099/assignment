@@ -219,6 +219,8 @@ On a dedicated machine with more cores and memory: 30 or more threads can run in
 
 <img width="1728" height="768" alt="Screenshot 2026-04-07 at 10 40 11 PM" src="https://github.com/user-attachments/assets/91ef37fb-07db-4a35-95ac-6aeae2cf92ff" />
 
+<img width="1721" height="563" alt="Screenshot 2026-04-07 at 10 45 56 PM" src="https://github.com/user-attachments/assets/55348fb3-ffce-4aa6-a6a4-104ec24f3942" />
+
 <img width="1723" height="1117" alt="Screenshot 2026-04-07 at 10 40 49 PM" src="https://github.com/user-attachments/assets/8d4ab960-ba5e-45e4-af97-6693018ad441" />
 
 <img width="1351" height="543" alt="Screenshot 2026-04-07 at 10 40 37 PM" src="https://github.com/user-attachments/assets/f9164b20-2320-4150-a65a-30edab29b104" />
@@ -230,4 +232,5 @@ On a dedicated machine with more cores and memory: 30 or more threads can run in
 <img width="1718" height="692" alt="Screenshot 2026-04-07 at 10 40 22 PM" src="https://github.com/user-attachments/assets/f9e74f19-201d-4e0a-b6e5-0026f59f7408" />
 
 <img width="1728" height="741" alt="Screenshot 2026-04-07 at 10 40 14 PM" src="https://github.com/user-attachments/assets/f24ffbb1-174e-4212-bb99-f48ca0eabb9f" />
+
 
