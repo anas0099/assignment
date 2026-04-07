@@ -12,11 +12,11 @@ from .utility import scrape_page
 
 logger = logging.getLogger(__name__)
 
-REQUEST_DELAY_SECONDS = 1
-MAX_SCRAPE_RETRIES = 2
+REQUEST_DELAY_SECONDS = 3
+MAX_SCRAPE_RETRIES = 3
 MAX_TOTAL_RETRIES = 5
-WAIT_TIMEOUT = 12
-EXTRA_RENDER_WAIT = 3
+WAIT_TIMEOUT = 20
+EXTRA_RENDER_WAIT = 8
 
 
 def _parse_results(raw_html):
