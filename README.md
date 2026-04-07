@@ -179,6 +179,33 @@ There is also a rate limit of 10 uploads per hour per user. This uses a sliding 
 Both the Keyword and SearchResult tables are partitioned by week in PostgreSQL. New partitions are created automatically on deploy via a management command. A scheduled service also runs weekly to pre-create future partitions four weeks ahead. Old partitions can be dropped without locking or affecting the rest of the data.
 
 
+## Why scraping is slow on Heroku and what production would look like
+
+On the Heroku deployment each keyword takes roughly 20 to 30 seconds to scrape. This is expected and is a consequence of how the Heroku environment works, not a bug in the code.
+
+The main reasons for the slowness are:
+
+Heroku Basic dynos have 512MB of RAM. Each Chrome instance consumes around 80 to 150MB on its own. With 9 worker threads running in parallel that is close to the memory ceiling, so Chrome instances run conservatively and any additional overhead causes slowdowns or restarts.
+
+Heroku dynos are shared virtualized containers running on AWS. They do not have dedicated CPU. When multiple processes compete for CPU, Chrome rendering takes longer than it would on a dedicated machine.
+
+The scraper waits 8 extra seconds after the page loads to allow Bing's JavaScript to finish rendering ads and results. This wait is necessary to get complete HTML but it means every single keyword adds at least 8 seconds of idle time regardless of how fast the network is.
+
+Heroku's outbound IP addresses are from AWS data centers. Bing recognises datacenter IPs and does not serve ads to them. This does not slow down the scraping itself but means total_ads will always be zero on Heroku.
+
+When tested locally on a MacBook with Docker, 3 consumer containers were run simultaneously with 3 worker threads each. That gave 9 keywords processing in parallel at the same time with stable throughput. Local Docker has access to the full machine memory and CPU which is why it performs significantly better than Heroku Basic dynos.
+
+In a real production environment the scraper worker would run on a dedicated machine with multiple CPU cores and sufficient RAM. The web app, database, Redis, and Kafka would remain on managed cloud services. Only the worker process moves to the dedicated machine. This separation is already built into the architecture since the worker is a standalone process that only needs the Kafka bootstrap address and the database URL to operate independently.
+
+A rough comparison of throughput:
+
+On Heroku Basic with 9 threads in one dyno: roughly 20 keywords per minute due to shared CPU and memory constraints.
+
+Locally with 3 Docker containers and 3 threads each: 9 keywords processed simultaneously, completing a batch of 9 in the same wall time as a single keyword on Heroku.
+
+On a dedicated machine with more cores and memory: 30 or more threads can run in parallel with stable Chrome instances, giving much higher throughput than any shared hosting environment.
+
+
 ## Project structure
 
     apps/keywords/     models, views, API, services, dedup, rate limiting
@@ -187,3 +214,20 @@ Both the Keyword and SearchResult tables are partitioned by week in PostgreSQL. 
     config/            Django settings for local and production, Kafka config
     templates/         HTML templates using TailwindCSS
     tests/             flat test directory with shared fixtures
+
+## Testing Screenshot
+
+<img width="1728" height="768" alt="Screenshot 2026-04-07 at 10 40 11 PM" src="https://github.com/user-attachments/assets/91ef37fb-07db-4a35-95ac-6aeae2cf92ff" />
+
+<img width="1723" height="1117" alt="Screenshot 2026-04-07 at 10 40 49 PM" src="https://github.com/user-attachments/assets/8d4ab960-ba5e-45e4-af97-6693018ad441" />
+
+<img width="1351" height="543" alt="Screenshot 2026-04-07 at 10 40 37 PM" src="https://github.com/user-attachments/assets/f9164b20-2320-4150-a65a-30edab29b104" />
+
+<img width="1417" height="916" alt="Screenshot 2026-04-07 at 10 40 32 PM" src="https://github.com/user-attachments/assets/b896ce63-b79e-4e39-b4c2-b7df7db83820" />
+
+<img width="1728" height="832" alt="Screenshot 2026-04-07 at 10 40 27 PM" src="https://github.com/user-attachments/assets/69fe8e5e-bd11-49d0-b4be-443dcef7e98a" />
+
+<img width="1718" height="692" alt="Screenshot 2026-04-07 at 10 40 22 PM" src="https://github.com/user-attachments/assets/f9e74f19-201d-4e0a-b6e5-0026f59f7408" />
+
+<img width="1728" height="741" alt="Screenshot 2026-04-07 at 10 40 14 PM" src="https://github.com/user-attachments/assets/f24ffbb1-174e-4212-bb99-f48ca0eabb9f" />
+
