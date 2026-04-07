@@ -39,7 +39,7 @@ django.setup()
 from django.contrib.auth import get_user_model
 User = get_user_model()
 User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-print('Superuser created: admin / admin123')
+print('Superuser created: admin / Admin@123')
 "
 fi
 
