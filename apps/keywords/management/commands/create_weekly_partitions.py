@@ -11,23 +11,37 @@ from apps.keywords.partitions import (
 
 
 class Command(BaseCommand):
+    """Management command to pre-create weekly PostgreSQL partitions.
+
+    Run this on every deploy to ensure partitions exist for the coming weeks.
+    The --drop-old flag can be used to clean up partitions older than --keep-weeks,
+    which is safe since dropping a partition is instant and lock-free.
+    """
+
     help = 'Create PostgreSQL weekly partitions for Keyword and SearchResult tables'
 
     def add_arguments(self, parser):
+        """Register --weeks-ahead, --drop-old, and --keep-weeks arguments."""
         parser.add_argument(
-            '--weeks-ahead', type=int, default=4,
+            '--weeks-ahead',
+            type=int,
+            default=4,
             help='How many future weeks to pre-create (default: 4)',
         )
         parser.add_argument(
-            '--drop-old', action='store_true',
+            '--drop-old',
+            action='store_true',
             help='Drop partitions older than --keep-weeks',
         )
         parser.add_argument(
-            '--keep-weeks', type=int, default=8,
+            '--keep-weeks',
+            type=int,
+            default=8,
             help='Weeks of history to keep when using --drop-old (default: 8)',
         )
 
     def handle(self, *args, **options):
+        """Create partitions for the current week through weeks_ahead future weeks."""
         weeks_ahead = options['weeks_ahead']
         today = date.today()
 

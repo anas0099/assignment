@@ -1,3 +1,8 @@
+"""
+Scraping orchestration: build the Bing URL, run the browser, parse results,
+and persist everything to the database.
+"""
+
 import logging
 import time
 
@@ -20,6 +25,13 @@ EXTRA_RENDER_WAIT = 8
 
 
 def _parse_results(raw_html):
+    """Parse raw HTML and return (total_ads, total_links).
+
+    Counts ad elements using AD_SELECTORS. A seen-set prevents the same
+    DOM node from being counted twice when multiple selectors match it.
+    Link count is taken from inside #b_results when available so we only
+    count result links, not navigation or header links.
+    """
     soup = BeautifulSoup(raw_html, 'html.parser')
 
     total_ads = 0
@@ -41,10 +53,13 @@ def _parse_results(raw_html):
 
 
 def scrape_bing(keyword_text):
-    search_url = (
-        f'{BING_SEARCH_URL}?q={keyword_text.replace(" ", "+")}'
-        f'&cc=US&setlang=en-US&mkt=en-US'
-    )
+    """Scrape Bing for keyword_text and return a result dict.
+
+    Returns {'total_ads': int, 'total_links': int, 'raw_html': str}.
+    Raises ScrapingError if the page is a captcha or language selection screen.
+    Raises MaxRetriesExceeded if the browser fails on all attempts.
+    """
+    search_url = f'{BING_SEARCH_URL}?q={keyword_text.replace(" ", "+")}&cc=US&setlang=en-US&mkt=en-US'
 
     raw_html = scrape_page(
         url=search_url,
@@ -69,6 +84,17 @@ def scrape_bing(keyword_text):
 
 
 def scrape_keyword_sync(keyword_id):
+    """Scrape a single keyword and write results to the database.
+
+    Marks the keyword as processing, acquires a rate-limit slot, scrapes
+    Bing, then saves the SearchResult and marks the keyword completed.
+
+    On failure the retry_count is incremented, error_message is stored,
+    and the keyword is marked failed. The sweep thread in consumer.py will
+    re-queue it with exponential backoff up to MAX_TOTAL_RETRIES times.
+    Cache entries for both the keyword and its owner's list are invalidated
+    on every outcome so the UI stays consistent.
+    """
     from apps.keywords.cache import (
         invalidate_search_result_cache,
         invalidate_user_keyword_cache,
@@ -108,7 +134,10 @@ def scrape_keyword_sync(keyword_id):
         invalidate_user_keyword_cache(user_id)
         logger.error(
             'Scraping failed keyword=%r id=%d attempt=%d/%d error=%s',
-            keyword.text, keyword.id, keyword.retry_count, MAX_TOTAL_RETRIES,
+            keyword.text,
+            keyword.id,
+            keyword.retry_count,
+            MAX_TOTAL_RETRIES,
             keyword.error_message[:120],
         )
         report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
@@ -124,7 +153,10 @@ def scrape_keyword_sync(keyword_id):
         invalidate_user_keyword_cache(user_id)
         logger.error(
             'Unexpected error keyword=%r id=%d error_type=%s error=%s',
-            keyword.text, keyword.id, type(err).__name__, err,
+            keyword.text,
+            keyword.id,
+            type(err).__name__,
+            err,
         )
         report_scrape_failure(keyword.id, keyword.text, err, keyword.retry_count, MAX_TOTAL_RETRIES)
         if keyword.retry_count >= MAX_TOTAL_RETRIES:

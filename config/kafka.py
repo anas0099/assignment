@@ -19,22 +19,35 @@ _producer = None
 
 
 def _kafka_conf(extra=None):
+    """Build a confluent-kafka config dict, adding SASL/SSL if credentials are set.
+
+    When KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD are empty (local Docker),
+    returns a plain bootstrap config. In production (Confluent Cloud) the
+    SASL_SSL block is added automatically.
+    """
     conf = {
         'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
     }
     if KAFKA_SASL_USERNAME and KAFKA_SASL_PASSWORD:
-        conf.update({
-            'security.protocol': 'SASL_SSL',
-            'sasl.mechanisms': 'PLAIN',
-            'sasl.username': KAFKA_SASL_USERNAME,
-            'sasl.password': KAFKA_SASL_PASSWORD,
-        })
+        conf.update(
+            {
+                'security.protocol': 'SASL_SSL',
+                'sasl.mechanisms': 'PLAIN',
+                'sasl.username': KAFKA_SASL_USERNAME,
+                'sasl.password': KAFKA_SASL_PASSWORD,
+            }
+        )
     if extra:
         conf.update(extra)
     return conf
 
 
 def get_producer():
+    """Return the singleton Kafka producer, creating it on first call.
+
+    The producer is flushed and cleaned up automatically on process exit
+    via the atexit hook registered here.
+    """
     global _producer
     if _producer is None:
         _producer = Producer(_kafka_conf({'acks': 'all', 'retries': 3}))
@@ -43,6 +56,7 @@ def get_producer():
 
 
 def _shutdown_producer():
+    """Flush any pending messages and release the producer on process exit."""
     global _producer
     if _producer is not None:
         _producer.flush(timeout=5)
@@ -50,16 +64,28 @@ def _shutdown_producer():
 
 
 def _delivery_callback(err, msg):
+    """Called by the producer after each message is acknowledged or fails.
+
+    Logs delivery errors so failed publishes are visible in the logs even
+    though the caller does not block waiting for confirmation.
+    """
     if err:
         logger.error('Kafka delivery failed: %s', err)
     else:
         logger.info(
             'Kafka message delivered to %s [%d] @ %d',
-            msg.topic(), msg.partition(), msg.offset(),
+            msg.topic(),
+            msg.partition(),
+            msg.offset(),
         )
 
 
 def publish_keyword(keyword_id):
+    """Publish a single keyword ID as a JSON message to the scrape topic.
+
+    The keyword ID is used as the message key so all messages for the same
+    keyword always land on the same Kafka partition.
+    """
     producer = get_producer()
     payload = json.dumps({'keyword_id': keyword_id})
     producer.produce(
@@ -72,12 +98,24 @@ def publish_keyword(keyword_id):
 
 
 def publish_keywords(keyword_ids):
+    """Publish a batch of keyword IDs and flush the producer before returning.
+
+    Flushing here ensures all messages are sent before the HTTP response is
+    returned to the user, so the scraping starts immediately rather than
+    waiting for the producer's internal queue to drain on its own.
+    """
     for kid in keyword_ids:
         publish_keyword(kid)
     get_producer().flush(timeout=10)
 
 
 def ensure_topic():
+    """Create the scrape topic if it does not already exist.
+
+    Safe to call on every startup - TopicExistsError is swallowed silently.
+    The topic is created with TOPIC_PARTITIONS partitions so up to that many
+    consumer processes can work in parallel.
+    """
     admin = AdminClient(_kafka_conf())
     topic = NewTopic(
         KEYWORD_SCRAPE_TOPIC,

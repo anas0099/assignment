@@ -12,13 +12,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import django
+import django  # noqa: E402
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
 django.setup()
 
-from confluent_kafka import Consumer, KafkaError
-from config.kafka import KEYWORD_SCRAPE_TOPIC, _kafka_conf
+from confluent_kafka import Consumer, KafkaError  # noqa: E402
+
+from config.kafka import KEYWORD_SCRAPE_TOPIC, _kafka_conf  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +35,21 @@ def _backoff_seconds(retry_count):
 
 
 def _signal_handler(signum, frame):
+    """Catch SIGINT/SIGTERM and tell the consumer loop to stop gracefully."""
     global running
     running = False
     logger.info('Shutdown signal received, closing consumer...')
 
 
 def _process_keyword(keyword_id):
-    from apps.scraper.engine import scrape_keyword_sync
+    """Scrape a single keyword and log the outcome.
+
+    This runs inside a thread pool worker. Any unhandled exception is caught
+    and logged so a bad keyword does not crash the whole worker thread.
+    """
     from apps.keywords.models import Keyword
+    from apps.scraper.engine import scrape_keyword_sync
+
     try:
         scrape_keyword_sync(keyword_id)
         kw = Keyword.objects.get(id=keyword_id)
@@ -50,12 +58,17 @@ def _process_keyword(keyword_id):
         else:
             logger.error(
                 'Scraping failed keyword_id=%d attempt=%d/%d error=%s',
-                keyword_id, kw.retry_count, MAX_TOTAL_RETRIES, kw.error_message[:120],
+                keyword_id,
+                kw.retry_count,
+                MAX_TOTAL_RETRIES,
+                kw.error_message[:120],
             )
     except Exception as err:
         logger.error(
             'Unhandled exception keyword_id=%d error_type=%s error=%s',
-            keyword_id, type(err).__name__, err,
+            keyword_id,
+            type(err).__name__,
+            err,
         )
 
 
@@ -72,6 +85,7 @@ def _sweep_failed_keywords():
       retry 5 → permanently failed (no more retries)
     """
     from django.utils import timezone
+
     from apps.keywords.models import Keyword
     from apps.keywords.services import _publish_to_kafka
 
@@ -102,7 +116,12 @@ def _sweep_failed_keywords():
                         requeued += 1
                         logger.info(
                             'Sweep re-queued keyword_id=%d text=%r attempt=%d/%d (waited %.0fs / %ds backoff)',
-                            kw.id, kw.text, kw.retry_count + 1, MAX_TOTAL_RETRIES, elapsed, backoff,
+                            kw.id,
+                            kw.text,
+                            kw.retry_count + 1,
+                            MAX_TOTAL_RETRIES,
+                            elapsed,
+                            backoff,
                         )
                     except Exception as pub_err:
                         kw.status = Keyword.Status.FAILED
@@ -117,6 +136,16 @@ def _sweep_failed_keywords():
 
 
 def run_consumer():
+    """Start the Kafka consumer loop and the background retry sweep thread.
+
+    Reads from the keyword-scrape topic and dispatches each message to the
+    thread pool. Offsets are committed only after the job is submitted to
+    the pool (not after it completes) so messages are not lost if the
+    process crashes before a worker thread finishes.
+
+    Blocks until a shutdown signal is received, then drains the thread pool
+    and closes the Kafka consumer cleanly.
+    """
     global running
 
     signal.signal(signal.SIGINT, _signal_handler)
@@ -125,16 +154,22 @@ def run_consumer():
     sweep_thread = threading.Thread(target=_sweep_failed_keywords, daemon=True, name='sweep')
     sweep_thread.start()
 
-    consumer = Consumer(_kafka_conf({
-        'group.id': 'scraper-workers',
-        'auto.offset.reset': 'earliest',
-        'enable.auto.commit': False,
-    }))
+    consumer = Consumer(
+        _kafka_conf(
+            {
+                'group.id': 'scraper-workers',
+                'auto.offset.reset': 'earliest',
+                'enable.auto.commit': False,
+            }
+        )
+    )
 
     consumer.subscribe([KEYWORD_SCRAPE_TOPIC])
     logger.info(
         'Kafka consumer started - topic=%s workers=%d max_retries=%d',
-        KEYWORD_SCRAPE_TOPIC, MAX_WORKERS, MAX_TOTAL_RETRIES,
+        KEYWORD_SCRAPE_TOPIC,
+        MAX_WORKERS,
+        MAX_TOTAL_RETRIES,
     )
 
     executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)

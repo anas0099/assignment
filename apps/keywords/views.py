@@ -25,10 +25,18 @@ from .services import create_keywords_from_list, dispatch_scraping
 
 
 class KeywordUploadView(LoginRequiredMixin, FormView):
+    """Handles CSV file uploads from the web UI.
+
+    Checks rate limits and deduplication before creating Keyword records
+    and dispatching them to Kafka. Shows flash messages to the user for
+    limit errors, duplicates, and successful uploads.
+    """
+
     template_name = 'keywords/upload.html'
     form_class = KeywordUploadForm
 
     def form_valid(self, form):
+        """Process the validated upload: dedup check, create records, dispatch scraping."""
         from django.conf import settings
 
         uploaded_file = form.cleaned_data['file']
@@ -57,7 +65,10 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
         mark_uploaded(user_id, hash_value)
         record_upload_attempt(user_id)
         upload_file, keywords = create_keywords_from_list(
-            self.request.user, file_name, keyword_texts, file_hash=hash_value,
+            self.request.user,
+            file_name,
+            keyword_texts,
+            file_hash=hash_value,
         )
         keyword_ids = [k.id for k in keywords]
         dispatch_scraping(keyword_ids)
@@ -72,11 +83,19 @@ class KeywordUploadView(LoginRequiredMixin, FormView):
 
 
 class KeywordListView(LoginRequiredMixin, ListView):
+    """Paginated list of all keywords for the logged-in user.
+
+    Results are cached per user+page+status in Redis to avoid hitting the
+    database on every page load. The cache is invalidated when a new upload
+    happens or a keyword status changes.
+    """
+
     template_name = 'keywords/list.html'
     context_object_name = 'keywords'
     paginate_by = 20
 
     def get_queryset(self):
+        """Return keywords from cache if available, otherwise query the database."""
         page = self.request.GET.get('page', 1)
         status_filter = self.request.GET.get('status', '')
         user_id = self.request.user.id
@@ -97,21 +116,30 @@ class KeywordListView(LoginRequiredMixin, ListView):
         return result
 
     def get_context_data(self, **kwargs):
+        """Add status choices to context so the filter dropdown renders correctly."""
         context = super().get_context_data(**kwargs)
         context['status_choices'] = Keyword.Status.choices
         return context
 
 
 class KeywordDetailView(LoginRequiredMixin, DetailView):
+    """Shows the full scrape result for a single keyword.
+
+    The result object is cached after the first load. Only completed keywords
+    are cached since pending/failed ones may still change.
+    """
+
     template_name = 'keywords/detail.html'
     context_object_name = 'keyword'
 
     def get_queryset(self):
+        """Restrict lookups to the current user's keywords."""
         return Keyword.objects.filter(
             upload_file__user=self.request.user,
         ).select_related('upload_file', 'search_result')
 
     def get_object(self, queryset=None):
+        """Return the keyword from cache if it is completed, otherwise fetch from DB."""
         keyword_id = self.kwargs['pk']
 
         cached = get_search_result(keyword_id)
@@ -125,21 +153,31 @@ class KeywordDetailView(LoginRequiredMixin, DetailView):
 
 
 class KeywordSearchView(LoginRequiredMixin, ListView):
+    """Full-text search across the user's keywords and upload file names.
+
+    Returns an empty queryset when no search query is provided so the
+    template can show a prompt instead of rendering all keywords.
+    """
+
     template_name = 'keywords/search.html'
     context_object_name = 'keywords'
     paginate_by = 20
 
     def get_queryset(self):
+        """Search keyword text and file names with a case-insensitive OR match."""
         query = self.request.GET.get('q', '').strip()
         if not query:
             return Keyword.objects.none()
-        return Keyword.objects.filter(
-            upload_file__user=self.request.user,
-        ).filter(
-            Q(text__icontains=query) | Q(upload_file__file_name__icontains=query)
-        ).select_related('upload_file', 'search_result')
+        return (
+            Keyword.objects.filter(
+                upload_file__user=self.request.user,
+            )
+            .filter(Q(text__icontains=query) | Q(upload_file__file_name__icontains=query))
+            .select_related('upload_file', 'search_result')
+        )
 
     def get_context_data(self, **kwargs):
+        """Pass the search query back to the template so the input stays populated."""
         context = super().get_context_data(**kwargs)
         context['query'] = self.request.GET.get('q', '')
         return context
