@@ -5,16 +5,24 @@ from django.db import migrations, models
 
 
 def _week_range(d):
+    """Return (monday, next_monday) for the ISO week containing date d."""
     monday = d - timedelta(days=d.weekday())
     return monday, monday + timedelta(days=7)
 
 
 def _partition_suffix(d):
+    """Return a partition name suffix like 2026_w15 for a given date."""
     year, week, _ = d.isocalendar()
     return f'{year}_w{week:02d}'
 
 
 def convert_to_partitioned(apps, schema_editor):
+    """Migrate the keyword and search result tables to range-partitioned versions.
+
+    Backs up existing data, drops the original tables, recreates them as
+    partitioned parent tables, creates a default partition and one for the
+    current week, then restores all data from the backups.
+    """
     from django.db import connection
 
     today = date.today()
@@ -22,16 +30,16 @@ def convert_to_partitioned(apps, schema_editor):
     suffix = _partition_suffix(today)
 
     with connection.cursor() as cur:
-        cur.execute("CREATE TABLE _kw_bak AS SELECT * FROM keywords_keyword")
-        cur.execute("CREATE TABLE _sr_bak AS SELECT * FROM keywords_searchresult")
+        cur.execute('CREATE TABLE _kw_bak AS SELECT * FROM keywords_keyword')
+        cur.execute('CREATE TABLE _sr_bak AS SELECT * FROM keywords_searchresult')
 
-        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM keywords_keyword")
+        cur.execute('SELECT COALESCE(MAX(id), 0) + 1 FROM keywords_keyword')
         kw_next = cur.fetchone()[0]
-        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM keywords_searchresult")
+        cur.execute('SELECT COALESCE(MAX(id), 0) + 1 FROM keywords_searchresult')
         sr_next = cur.fetchone()[0]
 
-        cur.execute("DROP TABLE keywords_searchresult")
-        cur.execute("DROP TABLE keywords_keyword")
+        cur.execute('DROP TABLE keywords_searchresult')
+        cur.execute('DROP TABLE keywords_keyword')
 
         cur.execute(f"""
             CREATE TABLE keywords_keyword (
@@ -59,14 +67,8 @@ def convert_to_partitioned(apps, schema_editor):
             ) PARTITION BY RANGE (scraped_at)
         """)
 
-        cur.execute(
-            "CREATE TABLE keywords_keyword_default "
-            "PARTITION OF keywords_keyword DEFAULT"
-        )
-        cur.execute(
-            "CREATE TABLE keywords_searchresult_default "
-            "PARTITION OF keywords_searchresult DEFAULT"
-        )
+        cur.execute('CREATE TABLE keywords_keyword_default PARTITION OF keywords_keyword DEFAULT')
+        cur.execute('CREATE TABLE keywords_searchresult_default PARTITION OF keywords_searchresult DEFAULT')
 
         cur.execute(f"""
             CREATE TABLE keywords_keyword_{suffix}
@@ -86,11 +88,11 @@ def convert_to_partitioned(apps, schema_editor):
             ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
         """)
 
-        cur.execute("CREATE INDEX ON keywords_keyword (upload_file_id)")
-        cur.execute("CREATE INDEX ON keywords_keyword (status)")
-        cur.execute("CREATE INDEX ON keywords_keyword (created_at)")
-        cur.execute("CREATE INDEX ON keywords_searchresult (keyword_id)")
-        cur.execute("CREATE INDEX ON keywords_searchresult (scraped_at)")
+        cur.execute('CREATE INDEX ON keywords_keyword (upload_file_id)')
+        cur.execute('CREATE INDEX ON keywords_keyword (status)')
+        cur.execute('CREATE INDEX ON keywords_keyword (created_at)')
+        cur.execute('CREATE INDEX ON keywords_searchresult (keyword_id)')
+        cur.execute('CREATE INDEX ON keywords_searchresult (scraped_at)')
 
         cur.execute("""
             INSERT INTO keywords_keyword
@@ -107,16 +109,16 @@ def convert_to_partitioned(apps, schema_editor):
             FROM _sr_bak
         """)
 
-        cur.execute("DROP TABLE _kw_bak")
-        cur.execute("DROP TABLE _sr_bak")
+        cur.execute('DROP TABLE _kw_bak')
+        cur.execute('DROP TABLE _sr_bak')
 
 
 def reverse_partitioned(apps, schema_editor):
+    """Reversing this migration is not supported. Partitioned tables cannot be trivially reverted."""
     pass
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('keywords', '0001_initial'),
     ]

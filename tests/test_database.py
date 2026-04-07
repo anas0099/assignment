@@ -23,8 +23,10 @@ class TestDatabase:
     @pytest.mark.django_db
     def test_no_pending_migrations(self):
         from io import StringIO
+
         from django.core.management import call_command
+
         out = StringIO()
         call_command('showmigrations', '--plan', stdout=out)
-        unapplied = [l for l in out.getvalue().splitlines() if l.strip().startswith('[ ]')]
+        unapplied = [line for line in out.getvalue().splitlines() if line.strip().startswith('[ ]')]
         assert unapplied == []

@@ -9,9 +9,16 @@ from .serializers import LoginSerializer, SignUpSerializer
 
 
 class SignUpAPIView(APIView):
+    """REST endpoint for creating a new user account.
+
+    Returns a DRF token on success so the client can immediately start
+    making authenticated requests without a separate login call.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Create the user and return a token, user_id, and username."""
         serializer = SignUpSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -23,9 +30,16 @@ class SignUpAPIView(APIView):
 
 
 class LoginAPIView(APIView):
+    """REST endpoint for authenticating an existing user.
+
+    Returns the same token format as SignUpAPIView so clients can handle
+    both responses the same way.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Validate credentials and return a token, or 401 if they are wrong."""
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = authenticate(

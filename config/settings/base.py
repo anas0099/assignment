@@ -8,11 +8,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-producti
 
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
-    if h.strip()
-]
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if h.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',

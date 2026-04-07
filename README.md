@@ -232,5 +232,3 @@ On a dedicated machine with more cores and memory: 30 or more threads can run in
 <img width="1718" height="692" alt="Screenshot 2026-04-07 at 10 40 22 PM" src="https://github.com/user-attachments/assets/f9e74f19-201d-4e0a-b6e5-0026f59f7408" />
 
 <img width="1728" height="741" alt="Screenshot 2026-04-07 at 10 40 14 PM" src="https://github.com/user-attachments/assets/f24ffbb1-174e-4212-bb99-f48ca0eabb9f" />
-
-

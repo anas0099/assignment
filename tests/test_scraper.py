@@ -1,17 +1,15 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
+from apps.scraper.engine import _parse_results
 from apps.scraper.resilience import (
-    CaptchaDetected,
     MaxRetriesExceeded,
     is_captcha_page,
     is_language_selection_page,
 )
-from apps.scraper.engine import _parse_results
 
-
-AD_HTML = '''
+AD_HTML = """
 <html><body>
 <ol id="b_results">
   <li class="b_ad"><a href="/ad1">Ad 1</a></li>
@@ -19,16 +17,16 @@ AD_HTML = '''
   <li><a href="/r2">Result 2</a></li>
 </ol>
 </body></html>
-'''
+"""
 
-NO_AD_HTML = '''
+NO_AD_HTML = """
 <html><body>
 <ol id="b_results">
   <li><a href="/r1">R1</a></li>
   <li><a href="/r2">R2</a></li>
 </ol>
 </body></html>
-'''
+"""
 
 
 class TestParseResults:
@@ -76,6 +74,7 @@ class TestScrapeKeywordSync:
     def test_completed_on_success(self, mock_scrape, user):
         from apps.keywords.models import Keyword, UploadFile
         from apps.scraper.engine import scrape_keyword_sync
+
         mock_scrape.return_value = {'total_ads': 2, 'total_links': 10, 'raw_html': '<html/>'}
         upload = UploadFile.objects.create(user=user, file_name='f.csv', total_keywords=1)
         kw = Keyword.objects.create(upload_file=upload, text='test')
@@ -87,6 +86,7 @@ class TestScrapeKeywordSync:
     def test_failed_on_max_retries(self, _, user):
         from apps.keywords.models import Keyword, UploadFile
         from apps.scraper.engine import scrape_keyword_sync
+
         upload = UploadFile.objects.create(user=user, file_name='f.csv', total_keywords=1)
         kw = Keyword.objects.create(upload_file=upload, text='bad')
         scrape_keyword_sync(kw.id)

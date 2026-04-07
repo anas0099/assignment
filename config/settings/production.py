@@ -1,15 +1,11 @@
-from .base import *  # noqa: F401,F403
-
 import dj_database_url
 from decouple import config
 
+from .base import *  # noqa: F401,F403
+
 DEBUG = False
 
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in config('ALLOWED_HOSTS', default='').split(',')
-    if h.strip()
-]
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='').split(',') if h.strip()]
 
 DATABASES = {
     'default': dj_database_url.config(
@@ -21,7 +17,7 @@ DATABASES = {
 
 MIDDLEWARE = [
     'config.middleware.NonWWWRedirectMiddleware',
-] + MIDDLEWARE
+] + MIDDLEWARE  # noqa: F405
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True

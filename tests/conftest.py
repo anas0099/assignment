@@ -43,7 +43,6 @@ def api_client(user):
 @pytest.fixture(autouse=True)
 def locmem_cache():
     loc = LocMemCache('test', {})
-    with patch('apps.keywords.cache.cache', loc), \
-         patch('apps.scraper.rate_limiter.cache', loc):
+    with patch('apps.keywords.cache.cache', loc), patch('apps.scraper.rate_limiter.cache', loc):
         yield loc
     loc.clear()

@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-import pytest
-
 from apps.keywords.cache import (
     _user_cache_version,
     get_keyword_list,
@@ -93,12 +91,16 @@ class TestRateLimiter:
             calls[0] += 1
             return MAX_REQUESTS_PER_WINDOW if calls[0] == 1 else 0
 
-        with patch('apps.scraper.rate_limiter.time.sleep') as mock_sleep, \
-             patch('apps.scraper.rate_limiter._current_count', side_effect=fake_count):
+        with (
+            patch('apps.scraper.rate_limiter.time.sleep') as mock_sleep,
+            patch('apps.scraper.rate_limiter._current_count', side_effect=fake_count),
+        ):
             acquire_scrape_slot()
             mock_sleep.assert_called_once()
 
     def test_redis_error_allows_through(self):
-        with patch('apps.scraper.rate_limiter._increment', return_value=0), \
-             patch('apps.scraper.rate_limiter._current_count', return_value=0):
+        with (
+            patch('apps.scraper.rate_limiter._increment', return_value=0),
+            patch('apps.scraper.rate_limiter._current_count', return_value=0),
+        ):
             acquire_scrape_slot()

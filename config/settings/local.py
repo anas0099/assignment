@@ -1,14 +1,12 @@
-from .base import *  # noqa: F401,F403
-
 import dj_database_url
 from decouple import config
+
+from .base import *  # noqa: F401,F403
 
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    h.strip()
-    for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',')
-    if h.strip()
+    h.strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()
 ]
 
 DATABASES = {
