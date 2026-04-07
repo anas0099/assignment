@@ -97,6 +97,9 @@ def _sweep_failed_keywords():
             break
 
         try:
+            from django.db import close_old_connections
+
+            close_old_connections()
             now = timezone.now()
             candidates = Keyword.objects.filter(
                 status=Keyword.Status.FAILED,
