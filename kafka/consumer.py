@@ -8,18 +8,20 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import django
+from confluent_kafka import Consumer, KafkaError
+from django.db import close_old_connections
+
+from config.kafka import KEYWORD_SCRAPE_TOPIC, _kafka_conf
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import django  # noqa: E402
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
 django.setup()
 
-from confluent_kafka import Consumer, KafkaError  # noqa: E402
-
-from config.kafka import KEYWORD_SCRAPE_TOPIC, _kafka_conf  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ running = True
 MAX_WORKERS = int(os.environ.get('SCRAPER_WORKERS', '6'))
 MAX_TOTAL_RETRIES = 5
 SWEEP_INTERVAL_SECONDS = 30
+PROCESSING_TIMEOUT_SECONDS = int(os.environ.get('PROCESSING_TIMEOUT_SECONDS', '600'))
 
 
 def _backoff_seconds(retry_count):
@@ -72,10 +75,84 @@ def _process_keyword(keyword_id):
         )
 
 
+def _run_sweep_cycle(now):
+    """
+    Execute one sweep cycle: recover stuck-processing keywords and re-queue failed ones.
+    """
+    from django.utils import timezone
+
+    from apps.keywords.models import Keyword
+    from apps.keywords.services import _publish_to_kafka
+
+    close_old_connections()
+
+    # Recovering keywords stuck in processing (worker crashed or was killed mid-scrape)
+    processing_cutoff = now - timezone.timedelta(seconds=PROCESSING_TIMEOUT_SECONDS)
+    stuck = Keyword.objects.filter(
+        status=Keyword.Status.PROCESSING,
+        updated_at__lt=processing_cutoff,
+    )
+    recovered = 0
+    for kw in stuck:
+        kw.status = Keyword.Status.PENDING
+        kw.save(update_fields=['status', 'updated_at'])
+        try:
+            _publish_to_kafka(kw.id)
+            recovered += 1
+            logger.warning(
+                'Sweep recovered stuck keyword_id=%d text=%r (processing for >%ds)',
+                kw.id,
+                kw.text,
+                PROCESSING_TIMEOUT_SECONDS,
+            )
+        except Exception as pub_err:
+            kw.status = Keyword.Status.FAILED
+            kw.save(update_fields=['status', 'updated_at'])
+            logger.error('Sweep failed to publish recovered keyword_id=%d: %s', kw.id, pub_err)
+
+    if recovered:
+        logger.info('Sweep cycle: recovered %d stuck processing keyword(s)', recovered)
+
+    # Requeuing failed keywords with exponential backoff
+    candidates = Keyword.objects.filter(
+        status=Keyword.Status.FAILED,
+        retry_count__lt=MAX_TOTAL_RETRIES,
+    )
+
+    requeued = 0
+    for kw in candidates:
+        backoff = _backoff_seconds(kw.retry_count)
+        elapsed = (now - kw.updated_at).total_seconds()
+
+        if elapsed >= backoff:
+            kw.status = Keyword.Status.PENDING
+            kw.save(update_fields=['status', 'updated_at'])
+            try:
+                _publish_to_kafka(kw.id)
+                requeued += 1
+                logger.info(
+                    'Sweep re-queued keyword_id=%d text=%r attempt=%d/%d (waited %.0fs / %ds backoff)',
+                    kw.id,
+                    kw.text,
+                    kw.retry_count + 1,
+                    MAX_TOTAL_RETRIES,
+                    elapsed,
+                    backoff,
+                )
+            except Exception as pub_err:
+                kw.status = Keyword.Status.FAILED
+                kw.save(update_fields=['status', 'updated_at'])
+                logger.error('Sweep failed to publish keyword_id=%d: %s', kw.id, pub_err)
+
+    if requeued:
+        logger.info('Sweep cycle complete: re-queued %d keyword(s)', requeued)
+
+
 def _sweep_failed_keywords():
     """
     Background thread that continuously re-queues failed keywords
-    using exponential backoff. Runs every SWEEP_INTERVAL_SECONDS.
+    using exponential backoff, and recovers keywords stuck in processing
+    status after PROCESSING_TIMEOUT_SECONDS. Runs every SWEEP_INTERVAL_SECONDS.
 
     Backoff schedule (by retry_count already recorded):
       retry 1 → wait  30s before next attempt
@@ -86,10 +163,12 @@ def _sweep_failed_keywords():
     """
     from django.utils import timezone
 
-    from apps.keywords.models import Keyword
-    from apps.keywords.services import _publish_to_kafka
-
-    logger.info('Sweep thread started (interval=%ds, max_retries=%d)', SWEEP_INTERVAL_SECONDS, MAX_TOTAL_RETRIES)
+    logger.info(
+        'Sweep thread started (interval=%ds, max_retries=%d, processing_timeout=%ds)',
+        SWEEP_INTERVAL_SECONDS,
+        MAX_TOTAL_RETRIES,
+        PROCESSING_TIMEOUT_SECONDS,
+    )
 
     while running:
         time.sleep(SWEEP_INTERVAL_SECONDS)
@@ -97,43 +176,7 @@ def _sweep_failed_keywords():
             break
 
         try:
-            from django.db import close_old_connections
-
-            close_old_connections()
-            now = timezone.now()
-            candidates = Keyword.objects.filter(
-                status=Keyword.Status.FAILED,
-                retry_count__lt=MAX_TOTAL_RETRIES,
-            )
-
-            requeued = 0
-            for kw in candidates:
-                backoff = _backoff_seconds(kw.retry_count)
-                elapsed = (now - kw.updated_at).total_seconds()
-
-                if elapsed >= backoff:
-                    kw.status = Keyword.Status.PENDING
-                    kw.save(update_fields=['status', 'updated_at'])
-                    try:
-                        _publish_to_kafka(kw.id)
-                        requeued += 1
-                        logger.info(
-                            'Sweep re-queued keyword_id=%d text=%r attempt=%d/%d (waited %.0fs / %ds backoff)',
-                            kw.id,
-                            kw.text,
-                            kw.retry_count + 1,
-                            MAX_TOTAL_RETRIES,
-                            elapsed,
-                            backoff,
-                        )
-                    except Exception as pub_err:
-                        kw.status = Keyword.Status.FAILED
-                        kw.save(update_fields=['status', 'updated_at'])
-                        logger.error('Sweep failed to publish keyword_id=%d: %s', kw.id, pub_err)
-
-            if requeued:
-                logger.info('Sweep cycle complete: re-queued %d keyword(s)', requeued)
-
+            _run_sweep_cycle(timezone.now())
         except Exception as err:
             logger.error('Sweep cycle error: %s: %s', type(err).__name__, err)
 
