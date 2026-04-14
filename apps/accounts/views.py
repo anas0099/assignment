@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import FormView, TemplateView
 
@@ -57,8 +58,14 @@ class LoginView(FormView):
             form.add_error(None, 'Invalid username or password.')
             return self.form_invalid(form)
         login(self.request, user)
-        next_url = self.request.GET.get('next', 'dashboard')
-        return redirect(next_url)
+        next_url = self.request.GET.get('next', '')
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return redirect(next_url)
+        return redirect('dashboard')
 
 
 class LogoutView(View):
