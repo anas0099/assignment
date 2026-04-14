@@ -59,6 +59,7 @@ class LoginView(FormView):
             return self.form_invalid(form)
         login(self.request, user)
         next_url = self.request.GET.get('next', '')
+        # Ensuring 'next' URL is safe (same host) to avoid open redirect attacks
         if next_url and url_has_allowed_host_and_scheme(
             url=next_url,
             allowed_hosts={self.request.get_host()},
