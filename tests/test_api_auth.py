@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client
 from rest_framework.test import APIClient
 
 User = get_user_model()
@@ -40,3 +41,28 @@ class TestLogin:
         client = APIClient()
         r = client.get('/api/keywords/')
         assert r.status_code == 401
+
+
+@pytest.mark.django_db
+class TestLoginViewOpenRedirect:
+    def test_safe_next_url_redirects_to_it(self):
+        """A relative next URL on the same site is allowed after login."""
+        User.objects.create_user('eve', 'e@e.com', 'pass1234')
+        client = Client()
+        r = client.post(
+            '/accounts/login/?next=/keywords/',
+            {'username': 'eve', 'password': 'pass1234'},
+        )
+        assert r.status_code == 302
+        assert r['Location'] == '/keywords/'
+
+    def test_external_next_url_redirects_to_dashboard(self):
+        """An external next URL is rejected and falls back to the dashboard."""
+        User.objects.create_user('frank', 'f@f.com', 'pass1234')
+        client = Client()
+        r = client.post(
+            '/accounts/login/?next=https://evil.com',
+            {'username': 'frank', 'password': 'pass1234'},
+        )
+        assert r.status_code == 302
+        assert 'evil.com' not in r['Location']
