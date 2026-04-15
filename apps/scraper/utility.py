@@ -9,6 +9,7 @@ fingerprinting across requests.
 
 import logging
 import os
+import random
 import threading
 import time
 
@@ -23,6 +24,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from apps.scraper.constants import USER_AGENTS
 from apps.scraper.resilience import MaxRetriesExceeded
 
 logger = logging.getLogger(__name__)
@@ -53,10 +55,8 @@ def _create_driver(headless=True, block_images=True):
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--lang=en-US')
     options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument(
-        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
-    )
+    user_agent = random.choice(USER_AGENTS)
+    options.add_argument(f'--user-agent={user_agent}')
     if block_images:
         prefs = {
             'profile.managed_default_content_settings.images': 2,
@@ -70,12 +70,7 @@ def _create_driver(headless=True, block_images=True):
         driver = uc.Chrome(**driver_kwargs)
     driver.execute_cdp_cmd(
         'Network.setUserAgentOverride',
-        {
-            'userAgent': (
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
-            ),
-        },
+        {'userAgent': user_agent},
     )
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
