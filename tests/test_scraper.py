@@ -1,7 +1,8 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.scraper.constants import USER_AGENTS
 from apps.scraper.engine import _parse_results
 from apps.scraper.resilience import (
     MaxRetriesExceeded,
@@ -66,6 +67,23 @@ class TestResilience:
 
     def test_normal_serp_is_not_language_page(self):
         assert not is_language_selection_page(AD_HTML)
+
+
+class TestUserAgentRotation:
+    @patch('apps.scraper.utility.uc')
+    def test_user_agent_is_chosen_from_constants_list(self, mock_uc):
+        """Each call to _create_driver will pick a user-agent from USER_AGENTS"""
+        mock_driver = MagicMock()
+        mock_uc.Chrome.return_value = mock_driver
+        mock_uc.ChromeOptions.return_value = MagicMock()
+
+        from apps.scraper.utility import _create_driver
+
+        _create_driver()
+
+        ua_override = mock_driver.execute_cdp_cmd.call_args
+        actual_ua = ua_override[0][1]['userAgent']
+        assert actual_ua in USER_AGENTS
 
 
 @pytest.mark.django_db
